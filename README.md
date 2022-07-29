@@ -1,3 +1,2 @@
 # research
-Vivian's research with kam
-new repository ?
+* requires structured_random_features repo
