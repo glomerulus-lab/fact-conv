@@ -9,7 +9,7 @@ import torch.optim as optim
 from torchvision import datasets
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, '/home/whitev4/research/structured_random_features/')
+sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
 from src.models.networks import V1_mnist_RFNet, classical_RFNet
 from src.data.load_dataset import load_mnist
 

@@ -14,7 +14,7 @@ from kymatio.torch import Scattering2D
 import kymatio.datasets as scattering_datasets
 import argparse
 import sys
-sys.path.insert(0, '/home/whitev4/research/structured_random_features/')
+sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
 from src.models.init_weights import V1_init, classical_init, V1_weights
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -47,10 +47,15 @@ class V1_V1_LinearLayer(nn.Module):
         h1_pool = self.bn1(pool(h1))  #[128, hidden_dim, 8, 8]
         h2_pool = self.bn2(pool(h2))  #[128, hidden_dim, 8, 8]
         
-        x_flat = x_pool.view(x_pool.size(0), -1)  #[128, 192] = [128, 3 * 8 * 8]
-        h1_flat = h1_pool.view(h1_pool.size(0),  -1)  #[128, hidden_dim * 8 * 8]
-        h2_flat = h2_pool.view(h2_pool.size(0), -1)  #[128, hidden_dim * 8 * 8]
+        x_flat = x_pool.view(x_pool.size(0), -1)  #[128, 192] = [128, 3 * 8 * 8] std ~1, mean ~0
+        h1_flat = h1_pool.view(h1_pool.size(0),  -1)  #[128, hidden_dim * 8 * 8] std ~1, mean ~0
+        h2_flat = h2_pool.view(h2_pool.size(0), -1)  #[128, hidden_dim * 8 * 8] std ~1, mean ~0
         
+        print(torch.std_mean(x_flat))
+        print(torch.std_mean(h1_flat))
+        print(torch.std_mean(h2_flat))
+
+              
         concat = torch.cat((x_flat, h1_flat, h2_flat), 1)  #[128, (3 * 8 * 8) + (hidden_dim * 8 * 8) + (hidden_dim * 8 * 8)
         
         beta = self.clf(concat) #[128, 10]
@@ -180,17 +185,16 @@ if __name__ == '__main__':
     print("Learning rate: ", initial_lr)
     
     #name = str(initial_lr) + "_" + str(args.hidden_dim)
-    #path = "/home/whitev4/research/wavelet-scattering/saved_models" + "/" + name
-    #print("path: ", path)
+    #path = "/research/harris/vivian/wavelet-scattering/saved_models" + "/" + name
     #if not os.path.exists(path): 
     #    os.makedirs(path, mode = 0o777)
         
     #os.chdir(path)
     
-    #PATH1 = "state_dict_model_" + str(initial_lr) + "_" + str(args.hidden_dim) + ".pt"
-    #PATH2 = "model_" + str(initial_lr) + "_" + str(args.hidden_dim) + ".pt"
-    #PATH3 = "loss_" + str(initial_lr) + "_" + str(args.hidden_dim) + ".pt"
-    #PATH4 = "accuracy_" + str(initial_lr) + "_" + str(args.hidden_dim) + ".pt"
+    #PATH1 = "state_dict_model_" + name + ".pt"
+    #PATH2 = "model_" + name + ".pt"
+    #PATH3 = "loss_" + name + ".pt"
+    #PATH4 = "accuracy_" + name + ".pt"
     
     
     #torch.save(model.state_dict(), PATH1)   

@@ -14,7 +14,7 @@ from kymatio.torch import Scattering2D
 import kymatio.datasets as scattering_datasets
 import argparse
 import sys
-sys.path.insert(0, '/home/whitev4/research/structured_random_features/')
+sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
 from src.models.init_weights import V1_init, classical_init, V1_weights
 import matplotlib.pyplot as plt
 
