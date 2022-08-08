@@ -1,9 +1,4 @@
-"""
-Classification on CIFAR10 (ResNet)
-==================================
-Based on pytorch example for CIFAR10
-"""
-
+#Control model w/ uniform weights
 
 import torch
 import torch.nn as nn
@@ -12,6 +7,7 @@ import torch.optim
 from torchvision import datasets, transforms
 from kymatio.torch import Scattering2D
 import kymatio.datasets as scattering_datasets
+from distutils.util import strtobool
 import argparse
 import sys
 sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
@@ -20,23 +16,24 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 
-class Control_V1_V1_LinearLayer(nn.Module):
-    def __init__(self, hidden_dim, size, spatial_freq, scale, center=4, bias=False, seed=None):
-        super(Control_V1_V1_LinearLayer, self).__init__()
-        self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3) 
-        self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3)
+class Control_Uniform(nn.Module):
+    def __init__(self, hidden_dim, bias, seed=None):
+        super(Control_Uniform, self).__init__()
+        self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, bias=bias) 
+        self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3,
+                                  bias=bias)
         self.clf = nn.Linear((3 * (8 ** 2)) + (hidden_dim * (8 ** 2)) + (hidden_dim * (8 ** 2)), 10)
         self.relu = nn.ReLU()
         self.bn0 = nn.BatchNorm2d(3)
         self.bn1 = nn.BatchNorm2d(hidden_dim)
         self.bn2 = nn.BatchNorm2d(hidden_dim)
         
-        # initialize the first layer
-        #V1_init(self.v1_layer, size, spatial_freq, center, scale, bias, seed)
-        #self.v1_layer.weight.requires_grad = False
+        self.v1_layer.weight.requires_grad = False
+        self.v1_layer2.weight.requires_grad = False
         
-        #V1_init(self.v1_layer2, size, spatial_freq, center, scale, bias, seed)
-        #self.v1_layer2.weight.requires_grad = False
+        if bias==True:
+            self.v1_layer.bias.requires_grad = False
+            self.v1_layer2.bias.requires_grad = False
         
     def forward(self, x):  #[128, 3, 32, 32]
         h1 = self.relu(self.v1_layer(x))  #[128, hidden_dim, 32, 32] w/ k=7, s=1, p=3
@@ -82,49 +79,46 @@ def test(model, device, test_loader, epoch):
     test_loss /= len(test_loader.dataset)
     accuracy = 100. * correct / len(test_loader.dataset)
     
-    print('Test set: Epoch: {}, Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'.format(
-        epoch, test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+    print('Test Epoch: {}\t Avg Loss: {:.4f}\t Accuracy: {:.2f}%'.format(
+        epoch, test_loss, accuracy))
 
     return test_loss, accuracy
 
+def save_model(name, trial, model):
+    src = "/research/harris/vivian/v1-models/saved_models/Control_Uniform/"
+    model_dir =  src + name
+    if not os.path.exists(model_dir): 
+        os.makedirs(model_dir)
+    os.chdir(model_dir)
+   
+            
+    #saves loss & accuracy in the trial directory -- all trials
+    trial_dir = model_dir + "/trial_" + str(trial)
+    if not os.path.exists(trial_dir): 
+        os.makedirs(trial_dir)
+    os.chdir(trial_dir)
+    
+    torch.save(test_loss, "loss.pt")
+    torch.save(test_accuracy, "accuracy.pt")
+    torch.save(model, "model.pt")
+
 
 if __name__ == '__main__':
-
-    """Train a simple Hybrid Resnet Scattering + CNN model on CIFAR.
-        scattering 1st order can also be set by the mode
-        Scattering features are normalized by batch normalization.
-        The model achieves around 88% testing accuracy after 10 epochs.
-        scatter 1st order +
-        scatter 2nd order + linear achieves 70.5% in 90 epochs
-        scatter + cnn achieves 88% in 15 epochs
-    """
-    
+ 
     parser = argparse.ArgumentParser(description='CIFAR scattering  + hybrid examples')
-    parser.add_argument('--mode', type=int, default=1,help='scattering 1st or 2nd order')
     parser.add_argument('--hidden_dim', type=int, default=100, help='number of hidden dimensions in model')
     parser.add_argument('--num_epoch', type=int, default=90, help='number of epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
-    parser.add_argument('--s', type=int, default=5, help='V1 size')
-    parser.add_argument('--f', type=int, default=2, help='V1 spatial frequency')
-    parser.add_argument('--scale', type=int, default=1, help='V1 scale')
+    parser.add_argument('--name', type=str, default="new_model", help="file name")
+    parser.add_argument('--trial', type=int, default=1, help="trial #")
+    parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), default=False, help='bias=True or False')
     args = parser.parse_args()
     initial_lr = args.lr
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    if args.mode == 1:
-        scattering = Scattering2D(J=2, shape=(32, 32), max_order=1)
-        K = 17*3
-    else:
-        scattering = Scattering2D(J=2, shape=(32, 32))
-        K = 81*3
-    if use_cuda:
-        scattering = scattering.cuda()
-
-
-    model = Control_V1_V1_LinearLayer(args.hidden_dim, args.s, args.f, args.scale, center=None).to(device)
+    model = Control_Uniform(args.hidden_dim, args.bias).to(device)
  
     # DataLoaders
     if use_cuda:
@@ -173,27 +167,8 @@ if __name__ == '__main__':
         epoch_list.append(epoch)
     
     end = datetime.now()
-    print("Time taken: (HH:MM:SS) ", end-start)
+    print("Trial {} time (HH:MM:SS): {}".format(args.trial, end-start))
+    print("Hidden dim: {}\t Learning rate: {}".format(args.hidden_dim, initial_lr))
     
-    print("Hidden dim: ", args.hidden_dim)
-    print("Num epochs: ", args.num_epoch)
-    print("Learning rate: ", initial_lr)
-    
-    name = str(initial_lr) + "_" + str(args.hidden_dim)
-    path = "/research/harris/vivian/wavelet-scattering/saved_models/Control_V1_V1/" + name
-    if not os.path.exists(path): 
-        os.makedirs(path, mode = 0o777)
-        
-    os.chdir(path)
-    
-    PATH1 = "state_dict_model_" + name + ".pt"
-    PATH2 = "model_" + name + ".pt"
-    PATH3 = "loss_" + name + ".pt"
-    PATH4 = "accuracy_" + name + ".pt"
-    
-    
-    torch.save(model.state_dict(), PATH1)   
-    torch.save(model, PATH2)
-    torch.save(test_loss, PATH3)
-    torch.save(test_accuracy, PATH4)
+    save_model(args.name, args.trial, model)
 

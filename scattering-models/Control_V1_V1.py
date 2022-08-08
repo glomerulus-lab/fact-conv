@@ -12,6 +12,7 @@ import torch.optim
 from torchvision import datasets, transforms
 from kymatio.torch import Scattering2D
 import kymatio.datasets as scattering_datasets
+from distutils.util import strtobool
 import argparse
 import sys
 sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
@@ -20,23 +21,24 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 
-class V1_V1_LinearLayer(nn.Module):
-    def __init__(self, hidden_dim, size, spatial_freq, scale, center=4, bias=False, seed=None):
-        super(V1_V1_LinearLayer, self).__init__()
-        self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3) 
-        self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3)
+class Control_V1_V1_LinearLayer(nn.Module):
+    def __init__(self, hidden_dim, size, spatial_freq, scale, center, bias, seed=None):
+        super(Control_V1_V1_LinearLayer, self).__init__()
+        self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, bias=bias) 
+        self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3,
+                                  bias=bias)
         self.clf = nn.Linear((3 * (8 ** 2)) + (hidden_dim * (8 ** 2)) + (hidden_dim * (8 ** 2)), 10)
         self.relu = nn.ReLU()
         self.bn0 = nn.BatchNorm2d(3)
         self.bn1 = nn.BatchNorm2d(hidden_dim)
         self.bn2 = nn.BatchNorm2d(hidden_dim)
         
-        # initialize the first layer
-        V1_init(self.v1_layer, size, spatial_freq, center, scale, bias, seed)
         self.v1_layer.weight.requires_grad = False
         
-        V1_init(self.v1_layer2, size, spatial_freq, center, scale, bias, seed)
         self.v1_layer2.weight.requires_grad = False
+        if bias==True:
+            self.v1_layer.bias.requires_grad = False
+            self.v1_layer2.bias.requires_grad = False
         
     def forward(self, x):  #[128, 3, 32, 32]
         h1 = self.relu(self.v1_layer(x))  #[128, hidden_dim, 32, 32] w/ k=7, s=1, p=3
@@ -51,11 +53,6 @@ class V1_V1_LinearLayer(nn.Module):
         h1_flat = h1_pool.view(h1_pool.size(0),  -1)  #[128, hidden_dim * 8 * 8] std ~1, mean ~0
         h2_flat = h2_pool.view(h2_pool.size(0), -1)  #[128, hidden_dim * 8 * 8] std ~1, mean ~0
         
-        print(torch.std_mean(x_flat))
-        print(torch.std_mean(h1_flat))
-        print(torch.std_mean(h2_flat))
-
-              
         concat = torch.cat((x_flat, h1_flat, h2_flat), 1)  #[128, (3 * 8 * 8) + (hidden_dim * 8 * 8) + (hidden_dim * 8 * 8)
         
         beta = self.clf(concat) #[128, 10]
@@ -93,6 +90,27 @@ def test(model, device, test_loader, epoch):
 
     return test_loss, accuracy
 
+def save_model(name, trial):
+    src = "/research/harris/vivian/v1-models/saved_models/Control_Uniform/"
+    model_dir =  src + name
+    if not os.path.exists(model_dir): 
+        os.makedirs(model_dir)
+    os.chdir(model_dir)
+    
+    #saves model & parameters in the model directory -- 1st trial only
+    if(trial == 1):
+            torch.save(model.state_dict(), "state_dict_model.pt")   
+            torch.save(model, "model.pt")
+            
+    #saves loss & accuracy in the trial directory -- all trials
+    trial_dir = model_dir + "/trial_" + str(trial)
+    if not os.path.exists(trial_dir): 
+        os.makedirs(trial_dir)
+    os.chdir(trial_dir)
+    
+    torch.save(test_loss, "loss.pt")
+    torch.save(test_accuracy, "accuracy.pt")
+
 
 if __name__ == '__main__':
 
@@ -113,6 +131,8 @@ if __name__ == '__main__':
     parser.add_argument('--s', type=int, default=5, help='V1 size')
     parser.add_argument('--f', type=int, default=2, help='V1 spatial frequency')
     parser.add_argument('--scale', type=int, default=1, help='V1 scale')
+    parser.add_argument('--name', type=str, default="new_model", help="file name")
+    parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), default=False, help='bias=True or False')
     args = parser.parse_args()
     initial_lr = args.lr
 
@@ -128,8 +148,8 @@ if __name__ == '__main__':
     if use_cuda:
         scattering = scattering.cuda()
 
-
-    model = V1_V1_LinearLayer(args.hidden_dim, args.s, args.f, args.scale, center=None).to(device)
+    center=None
+    model = Control_V1_V1_LinearLayer(args.hidden_dim, args.s, args.f, args.scale, center, args.bias).to(device)
  
     # DataLoaders
     if use_cuda:
@@ -178,27 +198,27 @@ if __name__ == '__main__':
         epoch_list.append(epoch)
     
     end = datetime.now()
-    print("Time taken: (HH:MM:SS) ", end-start)
+    print("Trial {} time (HH:MM:SS): {}".format(args.trial, end-start))
+    print("Hidden dim: {}\t Learning rate: {}".format(args.hidden_dim, initial_lr))
     
-    print("Hidden dim: ", args.hidden_dim)
-    print("Num epochs: ", args.num_epoch)
-    print("Learning rate: ", initial_lr)
+
+    src = "/research/harris/vivian/v1-models/saved_models/Control_Uniform/"
+    model_dir =  src + name
+    if not os.path.exists(model_dir): 
+        os.makedirs(model_dir)
+    os.chdir(model_dir)
     
-    #name = str(initial_lr) + "_" + str(args.hidden_dim)
-    #path = "/research/harris/vivian/wavelet-scattering/saved_models" + "/" + name
-    #if not os.path.exists(path): 
-    #    os.makedirs(path, mode = 0o777)
-        
-    #os.chdir(path)
+    #saves model & parameters in the model directory -- 1st trial only
+    if(trial == 1):
+            torch.save(model.state_dict(), "state_dict_model.pt")   
+            torch.save(model, "model.pt")
+            
+    #saves loss & accuracy in the trial directory -- all trials
+    trial_dir = model_dir + "/trial_" + str(trial)
+    if not os.path.exists(trial_dir): 
+        os.makedirs(trial_dir)
+    os.chdir(trial_dir)
     
-    #PATH1 = "state_dict_model_" + name + ".pt"
-    #PATH2 = "model_" + name + ".pt"
-    #PATH3 = "loss_" + name + ".pt"
-    #PATH4 = "accuracy_" + name + ".pt"
-    
-    
-    #torch.save(model.state_dict(), PATH1)   
-    #torch.save(model, PATH2)
-    #torch.save(test_loss, PATH3)
-    #torch.save(test_accuracy, PATH4)
+    torch.save(test_loss, "loss.pt")
+    torch.save(test_accuracy, "accuracy.pt")
 

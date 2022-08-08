@@ -1,0 +1,49 @@
+[33mcommit b2041ac3ec4b5f24825a895f00a27147ebae1c4f[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m)[m
+Merge: 560e79c 3004c06
+Author: whitev4 <whitev4@wwu.edu>
+Date:   Mon Aug 8 15:02:55 2022 -0700
+
+    Merge branch 'main' of https://github.com/glomerulus-lab/v1-models into main
+
+[33mcommit 560e79c8d8e0ac2c029fc028889af5ec479abc22[m
+Author: whitev4 <whitev4@wwu.edu>
+Date:   Mon Aug 8 15:01:51 2022 -0700
+
+    s & f grid search
+
+[33mcommit 3004c06793151099f3ac2261ac4c86f06e3a3c0d[m[33m ([m[1;31mlab/main[m[33m)[m
+Author: vivianwhite <66977221+vivianwhite@users.noreply.github.com>
+Date:   Fri Jul 29 11:38:27 2022 -0700
+
+    Update README.md
+
+[33mcommit ef774287c805b035269bddfcd553f707d5bdff1b[m
+Author: whitev4 <whitev4@wwu.edu>
+Date:   Fri Jul 29 11:01:32 2022 -0700
+
+    removed random features sub-repo
+
+[33mcommit d7f4e927e929158d443992f454fc38e775e09b6e[m[33m ([m[1;31morigin/main[m[33m)[m
+Merge: a6c44ad 7af6239
+Author: whitev4 <whitev4@wwu.edu>
+Date:   Fri Jul 29 09:51:55 2022 -0700
+
+    Merge branch 'main' of https://github.com/vivianwhite/v1_models into main
+
+[33mcommit a6c44ad3ee3ab5746a43f037cfbe9b271e81f891[m
+Author: whitev4 <whitev4@wwu.edu>
+Date:   Fri Jul 29 09:50:06 2022 -0700
+
+    added control_v1_v1 model
+
+[33mcommit 7af62397a0229175441ac63f6a0a5b4c075cfe87[m
+Author: vivianwhite <66977221+vivianwhite@users.noreply.github.com>
+Date:   Thu Jul 28 10:18:53 2022 -0700
+
+    Update README.md
+
+[33mcommit c8aa36adb4ad9793552c2e50ac8ff84ff4e30fda[m
+Author: whitev4 <whitev4@wwu.edu>
+Date:   Thu Jul 28 10:16:29 2022 -0700
+
+    initial commit
