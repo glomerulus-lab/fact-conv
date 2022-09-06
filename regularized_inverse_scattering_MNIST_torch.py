@@ -32,54 +32,30 @@ from kymatio.torch import Scattering2D as Scattering
 from kymatio.caching import get_cache_dir
 from kymatio.datasets import get_dataset_dir
 
-from distutils.util import strtobool
-import sys
-sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
-from src.models.init_weights import V1_init, classical_init, V1_weights
-
-from torchvision import models
-from torchsummary import summary
-
-
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class Generator(nn.Module):
-    def __init__(self, num_input_channels, num_hidden_channels, bias, num_output_channels=1, filter_size=3):
+    def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=1, filter_size=3):
         super(Generator, self).__init__()
         self.num_input_channels = num_input_channels
         self.num_hidden_channels = num_hidden_channels
         self.num_output_channels = num_output_channels
         self.filter_size = filter_size
-        
-        self.v1_layer1 = nn.Conv2d(num_input_channels, num_hidden_channels, filter_size, bias=False)
-        self.v1_layer2 = nn.Conv2d(num_hidden_channels, num_hidden_channels, filter_size, bias=False)
-        
-        scale1 = num_hidden_channels / ((1 * (28 * 28) ** 2) )
-        scale2 = num_hidden_channels / ((num_hidden_channels * (28 * 28) ** 2))
-        center = None
-        
-        V1_init(self.v1_layer1, size=2, spatial_freq=0.1, center=center, scale=scale1, bias=bias)
-        self.v1_layer1.weight.requires_grad = False
-        
-        V1_init(self.v1_layer2, size=2, spatial_freq=0.1, center=center, scale=scale2, bias=bias)
-        self.v1_layer2.weight.requires_grad = False
-        
         self.build()
-        
 
     def build(self):
         padding = (self.filter_size - 1) // 2
 
         self.main = nn.Sequential(
             nn.ReflectionPad2d(padding),
-            self.v1_layer1,
+            nn.Conv2d(self.num_input_channels, self.num_hidden_channels, self.filter_size, bias=False),
             nn.BatchNorm2d(self.num_hidden_channels, eps=0.001, momentum=0.9),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
 
             nn.ReflectionPad2d(padding),
-            self.v1_layer2,
+            nn.Conv2d(self.num_hidden_channels, self.num_hidden_channels, self.filter_size, bias=False),
             nn.BatchNorm2d(self.num_hidden_channels, eps=0.001, momentum=0.9),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
@@ -87,7 +63,8 @@ class Generator(nn.Module):
             nn.ReflectionPad2d(padding),
             nn.Conv2d(self.num_hidden_channels, self.num_output_channels, self.filter_size, bias=False),
             nn.BatchNorm2d(self.num_output_channels, eps=0.001, momentum=0.9),
-            nn.Tanh())
+            nn.Tanh()
+        )
 
     def forward(self, input_tensor):
         return self.main(input_tensor)
@@ -96,30 +73,16 @@ class Generator(nn.Module):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Regularized inverse scattering')
-    parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs to train')
+    parser.add_argument('--num_epochs', default=2, help='Number of epochs to train')
     parser.add_argument('--load_model', default=False, help='Load a trained model?')
     parser.add_argument('--dir_save_images', default='interpolation_images', help='Dir to save the sequence of images')
-    parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), default=False, help='bias=True or False')
-    parser.add_argument('--hidden_dim', type=int, default=100, help='number of hidden dimensions in model')
-    parser.add_argument('--s', type=int, default=2, help='V1 size')
-    parser.add_argument('--f', type=float, default=0.1, help='V1 spatial frequency') 
-    parser.add_argument('--name', type=str, default='reg_inverse_example', help='cache directory name')
     args = parser.parse_args()
 
     num_epochs = args.num_epochs
-    print("Num epochs: ", num_epochs)
     load_model = args.load_model
-    
     dir_save_images = args.dir_save_images
-    
-    src = "/research/harris/vivian/v1-models/saved-models/regularized_inverse_scattering/"
-    model_dir =  src + args.name
-    if not os.path.exists(model_dir): 
-        os.makedirs(model_dir)
-    os.chdir(model_dir)
-    
-   
-    dir_to_save = model_dir
+
+    dir_to_save = get_cache_dir('original_reg_inverse_example')
 
     transforms_to_apply = transforms.Compose([
         transforms.ToTensor(),
@@ -138,12 +101,9 @@ if __name__ == '__main__':
 
     scattering_fixed_batch = scattering(fixed_batch).squeeze(1)
     num_input_channels = scattering_fixed_batch.shape[1]
-    num_hidden_channels = args.hidden_dim
+    num_hidden_channels = num_input_channels
 
-    generator = Generator(num_input_channels, num_hidden_channels, args.bias).to(device)
-    
-    #summary(generator, (81, 7, 7), batch_size=128, device='cuda')
-    
+    generator = Generator(num_input_channels, num_hidden_channels).to(device)
     generator.train()
 
     # Either train the network or load a trained model
@@ -185,7 +145,6 @@ if __name__ == '__main__':
             batch_z = np.vstack((batch_z, zt))
 
     z = torch.from_numpy(batch_z).float().to(device)
-    print("z shape: ", z.shape)
     path = generator(z).data.cpu().numpy().squeeze(1)
     path = (path + 1) / 2  # The pixels are now in [0, 1]
 
