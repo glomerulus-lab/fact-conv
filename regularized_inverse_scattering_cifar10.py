@@ -1,0 +1,208 @@
+"""
+Regularized inverse of a scattering transform on MNIST
+======================================================
+
+Description:
+This example trains a convolutional network to invert the scattering transform at scale 2 of MNIST digits.
+After only two epochs, it produces a network that transforms a linear interpolation in the scattering space into a
+nonlinear interpolation in the image space.
+
+Remarks:
+The model after two epochs and the path (which consists of a sequence of images) are stored in the cache directory.
+The two epochs take roughly 5 minutes in a Quadro M6000.
+
+Reference:
+https://arxiv.org/abs/1805.06621
+"""
+
+import argparse
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+from PIL import Image
+
+from kymatio.torch import Scattering2D as Scattering
+from kymatio.caching import get_cache_dir
+from kymatio.datasets import get_dataset_dir
+
+from distutils.util import strtobool
+import sys
+sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
+from src.models.init_weights import V1_init, classical_init, V1_weights
+
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+class Generator(nn.Module):
+    def __init__(self, num_input_channels, num_hidden_channels, bias, num_output_channels=3, filter_size=3):
+        super(Generator, self).__init__()
+        self.num_input_channels = num_input_channels
+        self.num_hidden_channels = num_hidden_channels
+        self.num_output_channels = num_output_channels
+        self.filter_size = filter_size
+        
+        self.v1_layer1 = nn.Conv2d(243, num_hidden_channels, filter_size, bias=False)
+        self.v1_layer2 = nn.Conv2d(num_hidden_channels, num_hidden_channels, filter_size, bias=False)
+        self.v1_layer3 = nn.Conv2d(num_hidden_channels, num_output_channels, filter_size, bias=False)
+        
+        scale1 = num_hidden_channels / ((1 * (28 * 28) ** 2) )
+        scale2 = num_hidden_channels / ((num_hidden_channels * (32 * 32) ** 2))
+        center = None
+        
+        V1_init(self.v1_layer1, size=2, spatial_freq=0.1, center=center, scale=scale1, bias=bias)
+        self.v1_layer1.weight.requires_grad = False
+        
+        V1_init(self.v1_layer2, size=2, spatial_freq=0.1, center=center, scale=scale2, bias=bias)
+        self.v1_layer2.weight.requires_grad = False
+        
+        V1_init(self.v1_layer3, size=2, spatial_freq=0.1, center=center, scale=scale2, bias=bias)
+        self.v1_layer3.weight.requires_grad = False
+        
+        
+        
+        
+        
+        self.build()
+        
+
+    def build(self):
+        padding = (self.filter_size - 1) // 2
+
+        self.main = nn.Sequential(
+            nn.ReflectionPad2d(padding),
+            self.v1_layer1,
+            nn.BatchNorm2d(self.num_hidden_channels, eps=0.001, momentum=0.9),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+
+            nn.ReflectionPad2d(padding),
+            self.v1_layer2,
+            nn.BatchNorm2d(self.num_hidden_channels, eps=0.001, momentum=0.9),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+
+            nn.ReflectionPad2d(padding),
+            self.v1_layer3,
+            nn.BatchNorm2d(self.num_output_channels, eps=0.001, momentum=0.9),
+            nn.Tanh())
+
+    def forward(self, input_tensor):
+        b, n, c, h, w = input_tensor.shape
+        new_tensor = input_tensor.reshape(b, n*c, h, w)
+        print("Original shape: ", input_tensor.shape)
+        print("New shape: ", self.main(new_tensor).shape)
+        return self.main(new_tensor)
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Regularized inverse scattering')
+    parser.add_argument('--num_epochs', type=int, default=2, help='Number of epochs to train')
+    parser.add_argument('--load_model', default=False, help='Load a trained model?')
+    parser.add_argument('--dir_save_images', default='interpolation_images', help='Dir to save the sequence of images')
+    parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), default=False, help='bias=True or False')
+    parser.add_argument('--hidden_dim', type=int, default=100, help='number of hidden dimensions in model')
+    parser.add_argument('--s', type=int, default=2, help='V1 size')
+    parser.add_argument('--f', type=float, default=0.1, help='V1 spatial frequency') 
+    parser.add_argument('--name', type=str, default='reg_inverse_example', help='cache directory name')
+    args = parser.parse_args()
+
+    num_epochs = args.num_epochs
+    print("Num epochs: ", num_epochs)
+    load_model = args.load_model
+    dir_save_images = args.dir_save_images
+
+    dir_to_save = get_cache_dir(args.name)
+
+    transforms_to_apply = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,), (0.5,))  # Normalization for reproducibility issues
+        #transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     #std=[0.229, 0.224, 0.225])
+    ])
+
+    mnist_dir = get_dataset_dir("CIFAR10", create=True)
+    dataset = datasets.CIFAR10(mnist_dir, train=True, download=False, transform=transforms_to_apply)
+    dataloader = DataLoader(dataset, batch_size=128, shuffle=True, pin_memory=True)
+    fixed_dataloader = DataLoader(dataset, batch_size=2, shuffle=False)
+    fixed_batch = next(iter(fixed_dataloader))
+    fixed_batch = fixed_batch[0].float().to(device)
+
+    scattering = Scattering(J=2, shape=(32, 32)).to(device)
+
+    scattering_fixed_batch = scattering(fixed_batch).squeeze(1)
+    b, n, c, h, w = scattering_fixed_batch.shape
+    new_tensor = scattering_fixed_batch.reshape(b, n*c, h, w)
+       
+    num_input_channels = new_tensor.shape[1]
+    #num_hidden_channels = num_input_channels
+    num_hidden_channels = args.hidden_dim
+    print("Num hidden channels: ", num_hidden_channels)
+
+    generator = Generator(num_input_channels, num_hidden_channels, args.bias).to(device)
+    generator.train()
+
+    # Either train the network or load a trained model
+    ##################################################
+    if load_model:
+        filename_model = os.path.join(dir_to_save, 'model.pth')
+        generator.load_state_dict(torch.load(filename_model))
+    else:
+        criterion = torch.nn.L1Loss()
+        optimizer = optim.Adam(generator.parameters())
+
+        for idx_epoch in range(num_epochs):
+            print('Training epoch {}'.format(idx_epoch))
+            for _, current_batch in enumerate(dataloader):
+                generator.zero_grad()
+                batch_images = Variable(current_batch[0]).float().to(device)
+                batch_scattering = scattering(batch_images).squeeze(1)
+                batch_inverse_scattering = generator(batch_scattering)
+                loss = criterion(batch_inverse_scattering, batch_images)
+                loss.backward()
+                optimizer.step()
+
+        print('Saving results in {}'.format(dir_to_save))
+
+        torch.save(generator.state_dict(), os.path.join(dir_to_save, 'model.pth'))
+
+    generator.eval()
+
+    # We create the batch containing the linear interpolation points in the scattering space
+    ########################################################################################
+    z0 = scattering_fixed_batch.cpu().numpy()[[0]]
+    z1 = scattering_fixed_batch.cpu().numpy()[[1]]
+    batch_z = np.copy(z0)
+    num_samples = 32
+    interval = np.linspace(0, 1, num_samples)
+    for t in interval:
+        if t > 0:
+            zt = (1 - t) * z0 + t * z1
+            batch_z = np.vstack((batch_z, zt))
+
+    z = torch.from_numpy(batch_z).float().to(device)
+    path = generator(z).data.cpu().numpy()
+    path = (path + 1) / 2  # The pixels are now in [0, 1]
+
+    # We show and store the nonlinear interpolation in the image space
+    ##################################################################
+    dir_path = os.path.join(dir_to_save, dir_save_images)
+
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    for idx_image in range(num_samples):
+        current_image = np.uint8(path[idx_image] * 255.0)
+        filename = os.path.join(dir_path, '{}.png'.format(idx_image))
+        Image.fromarray(current_image).save(filename)
+        plt.imshow(current_image)
+        plt.axis('off')
+        plt.pause(0.1)
+        plt.draw()

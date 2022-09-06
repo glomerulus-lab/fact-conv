@@ -93,7 +93,6 @@ class V1_ResNet(nn.Module):
 
     def forward(self, x): #[128, 3, 32, 32]
         v1 = self.bn(self.v1_layer(x)) #[128, hidden_dim, 4, 4]
-        #v1 = self.v1_layer(x)
         h = self.relu(v1) 
         x = self.init_conv(h) 
         x = self.layer2(x)

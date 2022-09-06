@@ -1,4 +1,10 @@
-#cifa4100
+"""
+Classification on CIFAR10 (ResNet)
+==================================
+
+Based on pytorch example for CIFAR10
+"""
+
 
 import torch
 import torch.nn as nn
@@ -10,14 +16,43 @@ import kymatio.datasets as scattering_datasets
 import argparse
 
 class ScatteringLinearLayer(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, num_classes = 10):
         super(ScatteringLinearLayer, self).__init__()
-        self.clf = nn.Linear(3264, 100)
+        self.clf = nn.Linear(1004, 10)
+        hidden_dim=100
+        self.v1_layer = nn.Conv2d(in_channels=51, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
+                                  bias=False) 
+        self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
+                                   bias=False)
+        self.relu = nn.ReLU()
+        self.bn = nn.BatchNorm2d(51)
+        self.bn0 = nn.BatchNorm2d(51)
+        self.bn1 = nn.BatchNorm2d(hidden_dim)
+        self.bn2 = nn.BatchNorm2d(hidden_dim)
+        
+        
+        
+        self.v1_layer.weight.requires_grad = False
+        self.v1_layer2.weight.requires_grad = False
        
-    def forward(self, x): #original shape: (128, 1, 17, 7, 7)
-        x = x.view(x.size(0), -1) 
-        x = self.clf(x)
-        return x
+    def forward(self, x): #original shape: (128, 3, 17, 8, 8)
+        x = x.view(x.size(0), 51, 8, 8)
+        h1 = self.relu(self.v1_layer(self.bn(x)))  
+        h2 = self.relu(self.v1_layer2(h1))  
+        
+        pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=1)  
+        x_pool = self.bn0(pool(x))  
+        h1_pool = self.bn1(pool(h1)) 
+        h2_pool = self.bn2(pool(h2))  
+        
+        x_flat = x_pool.view(x_pool.size(0), -1)  
+        h1_flat = h1_pool.view(h1_pool.size(0),  -1)  
+        h2_flat = h2_pool.view(h2_pool.size(0), -1) 
+        
+        concat = torch.cat((x_flat, h1_flat, h2_flat), 1)  
+        
+        beta = self.clf(concat) #[128, 10]
+        return beta
 
 
 
@@ -81,7 +116,7 @@ if __name__ == '__main__':
         scattering = scattering.cuda()
 
 
-    model = ScatteringLinearLayer().to(device)
+    model = ScatteringLinearLayer(args.width).to(device)
 
     # DataLoaders
     if use_cuda:
@@ -91,17 +126,22 @@ if __name__ == '__main__':
         num_workers = None
         pin_memory = False
 
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
     train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR100(root=scattering_datasets.get_dataset_dir('CIFAR100'), train=True, transform=transforms.Compose([
+        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=True, transform=transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,)),
+            normalize,
         ]), download=True),
         batch_size=128, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR100(root=scattering_datasets.get_dataset_dir('CIFAR100'), train=False, transform=transforms.Compose([
+        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=False, transform=transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,)),
+            normalize,
         ])),
         batch_size=128, shuffle=False, num_workers=num_workers, pin_memory=pin_memory)
 
