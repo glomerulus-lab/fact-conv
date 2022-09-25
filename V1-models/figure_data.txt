@@ -1,0 +1,17 @@
+model dataset loss loss_err accuracy accuracy_err
+BN_V1_V1_Linear_bias_true CIFAR10 1.0103 0.0103 65.4 0.38
+BN_V1_V1_Linear_bias_true CIFAR100 2.5373 0.0181 39.05 0.43
+BN_V1_V1_Linear_bias_true MNIST 0.0297 0.0004 99.04 0.04
+BN_V1_V1_Linear_bias_true CIFAR10_50_Samples 1.8789 0.022 42.3 0.16
+Uniform_Control_bias_true CIFAR10 1.0309 0.0044 64.7 0.35
+Uniform_Control_bias_true CIFAR100 2.5601 0.0225 38.48 0.37
+Uniform_Control_bias_true MNIST 0.0288 0.0014 99.1 0.04
+Uniform_Control_bias_true CIFAR10_50_Samples 1.9018 0.005 42.55 0.33
+Gaussian_Control_bias_true CIFAR10 1.0405 0.0029 64.03 0.07
+Gaussian_Control_bias_true CIFAR100 2.5637 0.0059 38.28 0.15
+Gaussian_Control_bias_true MNIST 0.03 0.0008 99.05 0.0
+Gaussian_Control_bias_true CIFAR10_50_Samples 1.8672 0.0189 41.86 0.45
+Scattering_Linear_Control CIFAR10 1.1801 0.0 60.97 0.01
+Scattering_Linear_Control CIFAR100 3.1347 0.0 28.67 0.01
+Scattering_Linear_Control MNIST 0.1484 0.0 97.07 0.0
+Scattering_Linear_Control CIFAR10_50_Samples 1.6493 0.0164 48.25 0.28

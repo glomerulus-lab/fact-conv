@@ -1,0 +1,10 @@
+Model:  BN_V1_V1_Linear_bias_true
+Dataset:  CIFAR10
+Traceback (most recent call last):
+  File "avg_data.py", line 23, in <module>
+    os.chdir(src + "/trial_" + str(n))
+FileNotFoundError: [Errno 2] No such file or directory: '/research/harris/vivian/v1-models/saved-models/datasets[0]/names[0]/trial_1'
+Model:  BN_V1_V1_Linear_bias_true
+Dataset:  CIFAR10
+/bin/bash: -c: line 0: syntax error near unexpected token `('
+/bin/bash: -c: line 0: `python avg_data.py --dataset={} --name={}.format()'
