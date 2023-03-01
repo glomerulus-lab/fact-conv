@@ -140,6 +140,8 @@ if __name__ == '__main__':
     num_hidden_channels = 128
 
     generator = Generator(num_input_channels, num_hidden_channels).to(device)
+    from torchsummary import summary
+    #summary(generator, input_size=(3, 64, 64), device='cuda:1')
     
     generator.train()
     
@@ -227,7 +229,7 @@ if __name__ == '__main__':
         filename_image = os.path.join(dir_to_save, '{}_test.png'.format(idx))
         Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
 
-
+#
     # code for generating 16 random images
     #####################################
     nb_samples = 16
@@ -244,25 +246,30 @@ if __name__ == '__main__':
     ####################################
     fixed_dataloader_train = DataLoader(train_dataset, 16)
     fixed_batch_train = next(iter(fixed_dataloader_train))
+    fixed_batch_train = fixed_batch_train[0].float().to(device)
     
-    #z = np.array(fixed_batch_train)
-    #z = torch.from_numpy(np.array(fixed_batch_train)).float().to(device)
-    
-    
-    z = fixed_batch_train.float().to(device)
-    #list object has to attribute float
-    #try fixed_batch_train.to(device)
+    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1)
+    z = scattering_fixed_batch_train.cpu().detach().numpy()
+    z = torch.from_numpy(z).float().to(device)
     
     g_z = generator.forward(z)
     filename_images = os.path.join(dir_to_save, 'train_reconstruct.png')
     temp = make_grid(g_z.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
+    filename_images = os.path.join(dir_to_save, 'train_original.png')
+    temp = make_grid(z.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+    
+    
+    #reconstructing test set
     fixed_dataloader_test = DataLoader(test_dataset, 16)
     fixed_batch_test = next(iter(fixed_dataloader_test))
+    fixed_batch_test = fixed_batch_train[0].float().to(device)
     
-    
-    z = fixed_batch_test.float().to(device)
+    scattering_fixed_batch_test = scattering(fixed_batch_train).squeeze(1)
+    z = scattering_fixed_batch_test.cpu().detach().numpy()
+    z = torch.from_numpy(z).float().to(device)
   
     g_z = generator.forward(z)
     filename_images = os.path.join(dir_to_save, 'test_reconstruct.png')
@@ -270,6 +277,8 @@ if __name__ == '__main__':
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
     
-    
+    filename_images = os.path.join(dir_to_save, 'test_original.png')
+    temp = make_grid(z.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
    
