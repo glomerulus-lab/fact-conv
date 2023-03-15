@@ -25,7 +25,7 @@ from torch.utils.data import Subset
 
 import torch.nn.functional as F
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "cpu"
 
 class Generator(nn.Module):
     def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=3, filter_size=5): #does filter size change anything
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     num_epochs = int(args.num_epochs)
     load_model = args.load_model
     dir_save_images = args.dir_save_images
-    filename = "generative_scattering_results/celeba"+args.filename
+    filename = "generative_scattering_results/celeba/scattering/"+args.filename
     print("filename: ", filename)
 
     dir_to_save = get_cache_dir(filename)
@@ -177,9 +177,9 @@ if __name__ == '__main__':
     root = "/research/harris/vivian/v1-models/datasets/"
     train_dataset = datasets.CelebA(root=root, split="train", download=False, transform=transforms_to_apply)
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
+    test_dataset = datasets.CelebA(root=root, split="test", download=False, transform=transforms_to_apply)
 
-    scattering = V1_models.Generator_V1_celeba(num_input_channels, 128, 2, 0.1, 1, True).to(device)
-    scattering.requires_grad = False
+    scattering = Scattering(J=2, shape=(128,128)).to(device)
     
     whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)
     
@@ -239,8 +239,6 @@ if __name__ == '__main__':
    
     # We create the batch containing the linear interpolation points in the scattering space
     ########################################################################################
-    test_dataset = datasets.CelebA(root=root, split="test", download=False, transform=transforms_to_apply)
-    test_dataloader = DataLoader(test_dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
     
     fixed_dataloader_train = DataLoader(train_dataset, batch_size=2, shuffle=False)
     fixed_batch_train = next(iter(fixed_dataloader_train))
@@ -308,61 +306,53 @@ if __name__ == '__main__':
     #code for reconstructing from train/test sets
     #############################################
     
-
+    # save original training images
     fixed_dataloader_train = DataLoader(train_dataset, batch_size=16, shuffle=False)
     fixed_batch_train = next(iter(fixed_dataloader_train))
     fixed_batch_train = fixed_batch_train[0].float().to(device)
     scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) 
     
-    ztrain = scattering_fixed_batch_train.cpu().detach().numpy()
-    ztrain = torch.from_numpy(ztrain).float().to(device)
-    
-    print("ztrain shape: ", ztrain.size())
-    
-    # save reconstructed training images
-    g_ztrain = generator.forward(ztrain)
-    filename_images = os.path.join(dir_to_save, 'train_reconstruct.png')
-    temp = make_grid(g_ztrain.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
-    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
-   
-    # save original training images
     filename_images = os.path.join(dir_to_save, 'train_original.png')
-    temp = make_grid(ztrain, nrow=4).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(fixed_batch_train[0], nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
-    
-    
+        
+    # save original testing images
+
     fixed_dataloader_test = DataLoader(test_dataset, batch_size=16, shuffle=False)
     fixed_batch_test = next(iter(fixed_dataloader_test))
-    fixed_batch_test = fixed_batch_test[0].float().to(device) 
+    fixed_batch_test = fixed_batch_test[0].float().to(device)
     scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1)
     
-    # reconstruct testing images
-    ztest = scattering_fixed_batch_test.cpu().detach().numpy()
-    ztest = torch.from_numpy(ztest).float().to(device)
-  
-    print("ztest shape: ", ztest.size())
-    # save reconstructed testing images
-    g_ztest = generator.forward(ztest)
-    filename_images = os.path.join(dir_to_save, 'test_reconstruct.png')
-    temp = make_grid(g_ztest.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
-    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
-    
-    # save original scattered testing images
     filename_images = os.path.join(dir_to_save, 'test_original.png')
-    temp = make_grid(ztest, nrow=4).cpu().numpy().transpose((1, 2, 0))
-    temp = make_grid(fixed_batch_test[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(fixed_batch_test[0], nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
 
+    # reconstruct training images
+    z1 = scattering_fixed_batch_train.cpu().detach().numpy()
+    z1 = torch.from_numpy(z1).float().to(device)
+    
+    # save reconstructed training images
+    g_z1 = generator.forward(z1)
+    filename_images = os.path.join(dir_to_save, 'train_reconstruct.png')
+    temp = make_grid(g_z1.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+    
+    # reconstruct testing images
 
+    z2 = scattering_fixed_batch_test.cpu().detach().numpy()
+    z2 = torch.from_numpy(z2).float().to(device)
+  
+    # save reconstructed testing images
+    g_z2 = generator.forward(z2)
+    filename_images = os.path.join(dir_to_save, 'test_reconstruct.png')
+    temp = make_grid(g_z2.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+    
+    
 #where i left off on thursday:
 # trying to make train & test original images save as 4x4 grid!!!
 # also trying to make train & test reconstruction images NOT THE SAME and like actual reconstructions!
-
-#where i left off on saturday:
-# got testing originals correct
-# for some reason training original is white noise - why???
-# not sure if the reconstructions are accurate......
 
 #still to do:
 # try imitating their results with regular wavelet scattering
