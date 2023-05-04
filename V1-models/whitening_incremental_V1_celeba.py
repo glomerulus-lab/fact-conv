@@ -28,7 +28,7 @@ import torch.nn.functional as F
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 class Generator(nn.Module):
-    def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=3, filter_size=5): #does filter size change anything
+    def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=3, filter_size=5): 
         super(Generator, self).__init__()
         self.num_input_channels = num_input_channels
         self.num_hidden_channels = num_hidden_channels
@@ -77,8 +77,6 @@ class Generator(nn.Module):
         )
 
     def forward(self, input_tensor):
-        #print("pre main shape: ", input_tensor.size())
-        #print("post main shape: ", self.main(input_tensor).size())
         return self.main(input_tensor)
 
 class View(nn.Module):
@@ -151,20 +149,23 @@ class ConvBlock(nn.Module):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Regularized inverse scattering')
-    parser.add_argument('--num_epochs', default=1, help='Number of epochs to train')
+    parser.add_argument('--white_epochs', default=1, help='Number of epochs to train whitener')
+    parser.add_argument('--gen_epochs', default=1, help='Number of epochs to train generator')
     parser.add_argument('--load_model', default=False, help='Load a trained model?')
     parser.add_argument('--dir_save_images', default='interpolation_images', help='Dir to save the sequence of images')
     parser.add_argument('--filename', default="V1 whitening", help='Dir to store model and results')
     parser.add_argument('--dim', default=100, help='num input channels')
+    parser.add_argument('--generator', default="gsn", help="which generator to run: kymatio or gsn")
     args = parser.parse_args()
     
     num_input_channels = int(args.dim)
-    print("device: ", device)
-    num_epochs = int(args.num_epochs)
+    white_epochs = int(args.white_epochs)
+    gen_epochs = int(args.gen_epochs)
     load_model = args.load_model
     dir_save_images = args.dir_save_images
-    filename = "generative_scattering_results/celeba"+args.filename
+    filename = "generative_scattering_results/celeba/V1/"+args.filename
     print("filename: ", filename)
+    print("device: ", device)
 
     dir_to_save = get_cache_dir(filename)
 
@@ -183,21 +184,24 @@ if __name__ == '__main__':
     
     whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)
     
-    for idx_epoch in range(1): #2 epochs
-        print('Whitening training epoch {}'.format(idx_epoch))
-        for idx, batch in enumerate(train_dataloader): #469 batches
-            images = batch[0].float().to(device)
-            batch_scatter = scattering(images).view(images.size(0), -1).cpu().detach().numpy()
+     for idx_epoch in range(white_epochs): 
+         print('Whitening training epoch {}'.format(idx_epoch))
+         for idx, batch in enumerate(train_dataloader): #469 batches
+             images = batch[0].float().to(device)
+             batch_scatter = scattering(images).view(images.size(0), -1).cpu().detach().numpy()
             whitener.partial_fit(batch_scatter)
     print("Done whitening")
     
     
     num_hidden_channels = 128
 
-    #generator = Generator(num_input_channels, num_hidden_channels).to(device)
-    print("Num input channels: ", num_input_channels)
-    print("Num hidden channels: ", num_hidden_channels)
-    generator = NewGenerator(nb_channels_first_layer=4, z_dim=128, size_first_layer=4).to(device)
+    if args.generator == 'kymatio':
+        generator = Generator(num_input_channels, num_hidden_channels).to(device)
+    elif args.generator == 'gsn':
+        generator = NewGenerator(nb_channels_first_layer=4, z_dim=128, size_first_layer=4).to(device)
+    else:
+        print("incorrect generator argument")
+        
     from torchsummary import summary
     #summary(generator, input_size=(3, 128, 128), device='cuda')
     
@@ -213,7 +217,9 @@ if __name__ == '__main__':
         criterion = torch.nn.L1Loss()
         optimizer = optim.Adam(generator.parameters())
 
-        for idx_epoch in range(num_epochs):
+        loss_list = []
+        epoch_list = []
+        for idx_epoch in range(gen_epochs):
             print('Generator training epoch {}'.format(idx_epoch))
             for _, current_batch in enumerate(train_dataloader):
                 generator.zero_grad()
@@ -222,20 +228,30 @@ if __name__ == '__main__':
                 batch_whitened_scatter = torch.from_numpy(whitener.transform(batch_scattering)).float().to(device) #[128, 100]
                 
                 batch_inverse_scattering = generator(batch_whitened_scatter)
-                loss = criterion(batch_inverse_scattering, batch_images) #here is issue: 128x128 doesnt match 64x64
-                #input = batch_inverse_scattering = from generator, 128x3x64x64
-                #target = batch_images = 128x3x128x128
+                loss = criterion(batch_inverse_scattering, batch_images)
                 loss.backward()
                 optimizer.step()
-        print("Loss: ", loss)
+
+            epoch_list.append(idx_epoch)
+            loss_list.append(loss.cpu().detach().numpy())
+        print("Final Loss: ", loss)
         print('Saving results in {}'.format(dir_to_save))
        
 
         torch.save(generator.state_dict(), os.path.join(dir_to_save, 'model.pth'))
 
     generator.eval()
+    # print(epoch_list[0])
+    # print(epoch_list[-1])
+    # print(loss_list[0])
+    # print(loss_list[-1])
 
-    
+    # print("trying to plot")
+    # plt.plot(loss_list, epoch_list)
+    # fname = dir_to_save + "/plot.png"
+    # print("fname: ", fname)
+    # plt.savefig(fname)
+    # print("plot saved")
    
     # We create the batch containing the linear interpolation points in the scattering space
     ########################################################################################
