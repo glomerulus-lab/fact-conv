@@ -182,7 +182,7 @@ if __name__ == '__main__':
     train_dataset = datasets.CelebA(root=root, split="train", download=False, transform=transforms_to_apply)
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
 
-    scattering = V1_models.Generator_V1_celeba(num_input_channels, 128, 2, 0.1, 1, True).to(device)
+    scattering = V1_models.Scattering_V1_celeba(num_input_channels, 2, 0.1, 1, True).to(device)
     scattering.requires_grad = False
     
     whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)

@@ -91,17 +91,14 @@ if __name__ == '__main__':
     mnist_dir = get_dataset_dir("MNIST", create=True)
     dataset = datasets.MNIST(mnist_dir, train=True, download=True, transform=transforms_to_apply)
     
-    
-    #kmnist_dir = get_dataset_dir("KMNIST", create=True)
-    #dataset = datasets.KMNIST(kmnist_dir, train=True, download=True, transform=transforms_to_apply)
-    
+        
     dataloader = DataLoader(dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
 
     fixed_dataloader = DataLoader(dataset, batch_size=2, shuffle=False)
     fixed_batch = next(iter(fixed_dataloader))
     fixed_batch = fixed_batch[0].float().to(device)
 
-    scattering = V1_models.Generator_V1_MNIST(num_input_channels, 100, 2, 0.1, 1, True).to(device)
+    scattering = V1_models.Scattering_V1_MNIST(num_input_channels, 2, 0.1, 1, True).to(device)
     scattering.requires_grad = False
     scattering_fixed_batch = scattering(fixed_batch).squeeze(1) #2, 81, 7, 7
     
