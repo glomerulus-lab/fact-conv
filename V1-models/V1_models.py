@@ -183,7 +183,7 @@ class Generator_V1_MNIST(nn.Module):
                                   bias=bias) 
         self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
                                    bias=bias)
-        self.clf = nn.Linear((1 * (8 ** 2)) + (hidden_dim * (8 ** 2)) + (hidden_dim * (8 ** 2)), output_dim)
+        #self.clf = nn.Linear((1 * (8 ** 2)) + (hidden_dim * (8 ** 2)) + (hidden_dim * (8 ** 2)), output_dim)
         self.relu = nn.ReLU()
         self.bn = nn.BatchNorm2d(1)
         self.bn0 = nn.BatchNorm2d(1)
@@ -219,8 +219,8 @@ class Generator_V1_MNIST(nn.Module):
         
         concat = torch.cat((x_flat, h1_flat, h2_flat), 1)  
         
-        beta = self.clf(concat) 
-        return beta
+        #beta = self.clf(concat) 
+        return concat
 
 class Generator_V1_celeba(nn.Module):
     def __init__(self, hidden_dim, output_dim, size, spatial_freq, scale, bias, seed=None):
@@ -229,7 +229,7 @@ class Generator_V1_celeba(nn.Module):
                                   bias=bias) 
         self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
                                    bias=bias)
-        self.clf = nn.Linear(221067, output_dim)
+        
         self.relu = nn.ReLU()
         self.bn = nn.BatchNorm2d(3)
         self.bn0 = nn.BatchNorm2d(3)
@@ -251,13 +251,9 @@ class Generator_V1_celeba(nn.Module):
             self.v1_layer2.bias.requires_grad = False
         
     def forward(self, x):  #[2, 3, 218, 178]
-        #print("x: ", x.shape)
-        #print("bn: ", self.bn(x).shape)
         h1 = self.relu(self.v1_layer(self.bn(x)))  
         h2 = self.relu(self.v1_layer2(h1))  
         
-        #print("h1: ", h1.shape)
-        #print("h2: ", h2.shape)
         
         pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=2)  
         x_pool = self.bn0(pool(x))  
@@ -265,20 +261,13 @@ class Generator_V1_celeba(nn.Module):
         h2_pool = self.bn2(pool(h2))  
 
         
-        #print("x pool ", x_pool.shape)
-        #print("h1_pool: ", h1_pool.shape)
-        #print("h2 pool: ", h2_pool.shape)
-        
         x_flat = x_pool.view(x_pool.size(0), -1)  
         h1_flat = h1_pool.view(h1_pool.size(0),  -1)  
         h2_flat = h2_pool.view(h2_pool.size(0), -1) 
         
-        #print("x flat: ", x_flat.shape)
-        #print("h1 flat: ", h1_flat.shape)
-        #print("h2 flat: ", h2_flat.shape)
         
         concat = torch.cat((x_flat, h1_flat, h2_flat), 1)  
         
-        beta = self.clf(concat) 
-        return beta
+       # beta = self.clf(concat) 
+        return concat
 

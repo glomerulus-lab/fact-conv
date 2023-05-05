@@ -93,9 +93,8 @@ class NewGenerator(nn.Module): # SCATTERING GENERATOR!!!
     def __init__(self, nb_channels_first_layer=4, z_dim=2048, size_first_layer=4):
         super(NewGenerator, self).__init__()
 
-        nb_channels_input = nb_channels_first_layer * 32  #32 --> 128; 16 --> 64
-        #nb_channels_input = nb_channels_first_layer * 8 #32
-    
+        #nb_channels_input = nb_channels_first_layer * 32  #32 --> 128; 16 --> 64
+        nb_channels_input = nb_channels_first_layer * 32
         
         self.main = nn.Sequential(
             nn.Linear(in_features=z_dim,
@@ -115,6 +114,8 @@ class NewGenerator(nn.Module): # SCATTERING GENERATOR!!!
         )
 
     def forward(self, input_tensor):
+        print("Input shape: ", input_tensor.shape)
+        print("Output shape: ", self.main(input_tensor).shape)
         return self.main(input_tensor)
 
 
@@ -162,6 +163,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     num_input_channels = int(args.dim)
+    print("cuda available? ", torch.cuda.is_available())
     print("device: ", device)
     num_epochs = int(args.num_epochs)
     load_model = args.load_model
@@ -186,13 +188,15 @@ if __name__ == '__main__':
     scattering = Scattering(J=2, shape=(128,128)).to(device)
     
     whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)
-    
+    # whitener = IncrementalPCA(n_components=32, whiten=True)
+
     for idx_epoch in range(num_epochs): #2 epochs
         print('Whitening training epoch {}'.format(idx_epoch))
         for idx, batch in enumerate(train_dataloader): #469 batches
             images = batch[0].float().to(device)
             batch_scatter = scattering(images).view(images.size(0), -1).cpu().detach().numpy()
             whitener.partial_fit(batch_scatter)
+            break
 
             
     print("Done whitening")
@@ -222,17 +226,20 @@ if __name__ == '__main__':
             for _, current_batch in enumerate(train_dataloader):
                 generator.zero_grad()
                 batch_images = Variable(current_batch[0]).float().to(device) #[128, 3, 128, 128]
-                batch_scattering = scattering(batch_images).view(batch_images.size(0), -1).cpu().detach().numpy() #[128, 128]
+                batch_scattering = scattering(batch_images).view(batch_images.size(0), -1).cpu().detach().numpy() #[128, 248832]
                 batch_whitened_scatter = torch.from_numpy(whitener.transform(batch_scattering)).float().to(device) #[128, 128]
-                batch_inverse_scattering = generator(batch_whitened_scatter)
+                batch_inverse_scattering = generator(batch_whitened_scatter) #[128, 3, 32, 32]
+                
+                # LOSS iS COMPARING 128x128 IMAGES 
                 
                 # error message: Given groups=1, weight of size [64, 128, 7, 7], expected input[128, 32, 14, 14] to have 128 channels, but got 32 channels instead
                 loss = criterion(batch_inverse_scattering, batch_images) #here is issue: 128x128 doesnt match 64x64
-                # input = batch_inverse_scattering = from generator, 128x3x64x64
+                # input = batch_inverse_scattering = from generator, 128x3x32x32
                 # target = batch_images = 128x3x128x128
                 loss.backward()
                 optimizer.step()
-                
+                break
+
         print("Loss: ", loss)
         print('Saving results in {}'.format(dir_to_save))
        
@@ -250,7 +257,7 @@ if __name__ == '__main__':
     fixed_batch_train = next(iter(fixed_dataloader_train))
     fixed_batch_train = fixed_batch_train[0].float().to(device) #2, 3, 128, 128
 
-    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) #2, 3, 81, 32, 32
+    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) #[2, 3, 81, 32, 32]
     scattering_fixed_batch_train = scattering_fixed_batch_train.reshape([2, 243, 32, 32]) 
 
     fixed_dataloader_test = DataLoader(test_dataset, batch_size=2, shuffle=False)
@@ -272,29 +279,31 @@ if __name__ == '__main__':
         if t > 0:      
             zt = (1 - t) * z0 + t * z1
             batch_z_train = np.vstack((batch_z_train, zt))
+    print("z0 shape: ", z0.shape)
+    print("batch z train shape: ", batch_z_train.shape)
+    z = torch.from_numpy(batch_z_train).float().to(device) #[32, 243, 32, 32] -> supposed to be 128x128
+    print("z shape: ", z.shape)
+    g_z = generator.forward(z) # stuck here - mat1 = 248832x32 mat2=128x2048
+    g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
 
-  #  z = torch.from_numpy(batch_z_train).float().to(device) #32, 243, 32, 32
-  #  g_z = generator.forward(z) # stuck here
-  #  g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
 
-
- #   for idx in range(nb_samples):
- #       filename_image = os.path.join(dir_to_save, '{}_train.png'.format(idx))
- #       Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
+    for idx in range(nb_samples):
+        filename_image = os.path.join(dir_to_save, '{}_train.png'.format(idx))
+        Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
         
- #   for t in interval:
- #       if t > 0:      
- #           zt = (1 - t) * z2 + t * z3
-  #          batch_z_test = np.vstack((batch_z_test, zt))
+    for t in interval:
+        if t > 0:      
+            zt = (1 - t) * z2 + t * z3
+            batch_z_test = np.vstack((batch_z_test, zt))
 
-#    z = torch.from_numpy(batch_z_test).float().to(device)
-#    g_z = generator.forward(z)
-#    g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
+    z = torch.from_numpy(batch_z_test).float().to(device)
+    g_z = generator.forward(z)
+    g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
 
 
- #   for idx in range(nb_samples):
-  #      filename_image = os.path.join(dir_to_save, '{}_test.png'.format(idx))
-   #     Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
+    for idx in range(nb_samples):
+        filename_image = os.path.join(dir_to_save, '{}_test.png'.format(idx))
+        Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
 
 
     # code for generating 16 random images
