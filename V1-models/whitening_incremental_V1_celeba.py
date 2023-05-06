@@ -25,7 +25,7 @@ from torch.utils.data import Subset
 
 import torch.nn.functional as F
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 class Generator(nn.Module):
     def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=3, filter_size=5): 
@@ -164,7 +164,7 @@ if __name__ == '__main__':
     gen_epochs = int(args.gen_epochs)
     load_model = args.load_model
     dir_save_images = args.dir_save_images
-    nb_samples = args.num_samples
+    nb_samples = int(args.num_samples)
     filename = "generative_scattering_results/celeba/V1/"+args.filename
 
     print("filename: ", filename)
@@ -285,11 +285,9 @@ if __name__ == '__main__':
         filename_image = os.path.join(dir_to_save, '{}_train.png'.format(idx))
         Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)
 
-    for t in interval:
-        if t > 0:
-            zt = (1 - t) * z2 + t * z3
-            batch_z_test = np.vstack((batch_z_test, zt))
-
+    filename_images = os.path.join(dir_to_save, 'interpolation_train.png')
+    temp = make_grid(g_z.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
 
     # SET UP TESTING SET
     fixed_dataloader_test = DataLoader(test_dataset, batch_size=2, shuffle=False)
@@ -315,7 +313,9 @@ if __name__ == '__main__':
     for idx in range(nb_samples):
         filename_image = os.path.join(dir_to_save, '{}_test.png'.format(idx))
         Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
-
+    filename_images = os.path.join(dir_to_save, 'interpolation_test.png')
+    temp = make_grid(g_z.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
 
     # code for generating 16 random images
     #####################################

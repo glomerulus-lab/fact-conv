@@ -23,7 +23,7 @@ import V1_models
 from torchvision.utils import make_grid
 
 device = "cuda:1" if torch.cuda.is_available() else "cpu"
-
+print("device: ", device)
 class Generator(nn.Module):
     def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=1, filter_size=3):
         super(Generator, self).__init__()
@@ -71,14 +71,15 @@ if __name__ == '__main__':
     parser.add_argument('--dir_save_images', default='interpolation_images', help='Dir to save the sequence of images')
     parser.add_argument('--filename', default="V1 whitening", help='Dir to store model and results')
     parser.add_argument('--dim', default=100, help='num input channels')
+    parser.add_argument('--num_samples', default=32, help="num samples for interpolation")
     args = parser.parse_args()
     
     num_input_channels = int(args.dim)
-    
+    nb_samples = int(args.num_samples)
     num_epochs = int(args.num_epochs)
     load_model = args.load_model
     dir_save_images = args.dir_save_images
-    filename = "generative_scattering_results/"+args.filename
+    filename = "generative_scattering_results/mnist/V1/"+args.filename
     print("filename: ", filename)
 
     dir_to_save = get_cache_dir(filename)
@@ -89,12 +90,12 @@ if __name__ == '__main__':
     ])
     
     mnist_dir = get_dataset_dir("MNIST", create=True)
-    dataset = datasets.MNIST(mnist_dir, train=True, download=True, transform=transforms_to_apply)
+    train_dataset = datasets.MNIST(mnist_dir, train=True, download=True, transform=transforms_to_apply)
     
         
-    dataloader = DataLoader(dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
+    dataloader = DataLoader(train_dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
 
-    fixed_dataloader = DataLoader(dataset, batch_size=2, shuffle=False)
+    fixed_dataloader = DataLoader(train_dataset, batch_size=2, shuffle=False)
     fixed_batch = next(iter(fixed_dataloader))
     fixed_batch = fixed_batch[0].float().to(device)
 
@@ -113,7 +114,7 @@ if __name__ == '__main__':
             whitener.partial_fit(batch_scatter)
         
     
-    num_hidden_channels = 256
+    num_hidden_channels = 128 #used to be 256
 
     generator = Generator(num_input_channels, num_hidden_channels).to(device)
     generator.train()
@@ -150,21 +151,29 @@ if __name__ == '__main__':
    
     # We create the batch containing the linear interpolation points in the scattering space
     ########################################################################################
-    z0 = scattering_fixed_batch.cpu().detach().numpy()[[0]]
-    z1 = scattering_fixed_batch.cpu().detach().numpy()[[1]]
-    batch_z = np.copy(z0)
-    num_samples = 32
-    interval = np.linspace(0, 1, num_samples)
+    
+    # SET UP TRAINING SET
+    fixed_dataloader_train = DataLoader(train_dataset, batch_size=2, shuffle=False)
+    fixed_batch_train = next(iter(fixed_dataloader_train))
+    fixed_batch_train = fixed_batch_train[0].float().to(device)
+    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1).cpu().detach().numpy()
+    whitened_batch_train = torch.from_numpy(whitener.transform(scattering_fixed_batch_train)).float().to(device)
+    z0 = whitened_batch_train.cpu().detach().numpy()[[0]]
+    z1 = whitened_batch_train.cpu().detach().numpy()[[1]]
+    batch_z_train = np.copy(z0)
+
+
+    interval = np.linspace(0, 1, nb_samples)
     for t in interval:
         if t > 0:
             zt = (1 - t) * z0 + t * z1
-            batch_z = np.vstack((batch_z, zt))
+            batch_z_train = np.vstack((batch_z_train, zt))
 
-    z = torch.from_numpy(batch_z).float().to(device)
-    z_view = z.view(z.size(0), -1).cpu().numpy()
-    z_whitened = torch.from_numpy(whitener.transform(z_view)).float().to(device)
-   
-    path = generator(z_whitened).data.cpu().numpy().squeeze(1)
+    z = torch.from_numpy(batch_z_train).float().to(device)
+    #z_view = z.view(z.size(0), -1).cpu().numpy()
+    z_view = z.view(z.size(0), -1)
+    g_z = generator(z_view)
+    path = g_z.data.cpu().numpy().squeeze(1)
     path = (path + 1) / 2  # The pixels are now in [0, 1]
 
     # We show and store the nonlinear interpolation in the image space
@@ -174,15 +183,58 @@ if __name__ == '__main__':
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
 
-    for idx_image in range(num_samples):
+    for idx_image in range(nb_samples):
         current_image = np.uint8(path[idx_image] * 255.0)
-        filename = os.path.join(dir_path, '{}.png'.format(idx_image))
+        filename = os.path.join(dir_path, 'train_{}.png'.format(idx_image))
         Image.fromarray(current_image).save(filename)
-        plt.imshow(current_image, cmap='gray')
-        plt.axis('off')
-        plt.pause(0.1)
-        plt.draw()
-        
+
+    filename_images = os.path.join(dir_to_save, 'interpolation_train.png')
+    temp = make_grid(g_z.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
+
+    # SET UP TESTING SET
+    test_dataset = datasets.MNIST(mnist_dir, train=False, download=False, transform=transforms_to_apply)
+    test_dataloader = DataLoader(test_dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True)
+
+    fixed_dataloader_test = DataLoader(test_dataset, batch_size=2, shuffle=False)
+    fixed_batch_test = next(iter(fixed_dataloader_test))
+    fixed_batch_test = fixed_batch_test[0].float().to(device)
+    scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1).cpu().detach().numpy()
+    whitened_batch_test = torch.from_numpy(whitener.transform(scattering_fixed_batch_test)).float().to(device)
+    z2 = whitened_batch_test.cpu().detach().numpy()[[0]]
+    z3 = whitened_batch_test.cpu().detach().numpy()[[1]]
+    batch_z_test = np.copy(z2)
+
+
+    for t in interval:
+        if t > 0:
+            zt = (1 - t) * z2 + t * z3
+            batch_z_test = np.vstack((batch_z_test, zt))
+
+    z = torch.from_numpy(batch_z_test).float().to(device)
+    z_view = z.view(z.size(0), -1)
+    g_z = generator(z_view)
+    path = g_z.data.cpu().numpy().squeeze(1)
+    path = (path + 1) / 2  # The pixels are now in [0, 1]
+
+    # We show and store the nonlinear interpolation in the image space
+    ##################################################################
+    dir_path = os.path.join(dir_to_save, dir_save_images)
+
+    if not os.path.exists(dir_path):
+        os.makedirs(dir_path)
+
+    for idx_image in range(nb_samples):
+        current_image = np.uint8(path[idx_image] * 255.0)
+        filename = os.path.join(dir_path, 'test_{}.png'.format(idx_image))
+        Image.fromarray(current_image).save(filename)
+
+    filename_images = os.path.join(dir_to_save, 'interpolation_test.png')
+    temp = make_grid(g_z.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
+       
     # code for generating 16 random images
     #####################################
     nb_samples = 16
