@@ -178,7 +178,7 @@ class BN_V1_V1_LinearLayer_MNIST(nn.Module):
     
 class Scattering_V1_MNIST(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
-        super(Generator_V1_MNIST, self).__init__()
+        super(Scattering_V1_MNIST, self).__init__()
         self.v1_layer = nn.Conv2d(in_channels=1, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
                                   bias=bias) 
         self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
@@ -221,7 +221,7 @@ class Scattering_V1_MNIST(nn.Module):
 
 class Scattering_V1_celeba(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
-        super(Generator_V1_celeba, self).__init__()
+        super(Scattering_V1_celeba, self).__init__()
         self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
                                   bias=bias) 
         self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
