@@ -277,8 +277,8 @@ if __name__ == '__main__':
             batch_z_train = np.vstack((batch_z_train, zt))
 
     z = torch.from_numpy(batch_z_train).float().to(device) #SHAPE? 32x128
-    g_z = generator.forward(z)
-    g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
+    gz = generator.forward(z)
+    g_z = gz.data.cpu().numpy().transpose((0, 2, 3, 1))
 
 
     for idx in range(nb_samples):
@@ -286,7 +286,7 @@ if __name__ == '__main__':
         Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)
 
     filename_images = os.path.join(dir_to_save, 'interpolation_train.png')
-    temp = make_grid(g_z.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(gz.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
 
     # SET UP TESTING SET
@@ -306,15 +306,15 @@ if __name__ == '__main__':
             batch_z_test = np.vstack((batch_z_test, zt))
 
     z = torch.from_numpy(batch_z_test).float().to(device)
-    g_z = generator.forward(z)
-    g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
+    gz = generator.forward(z)
+    g_z = gz.data.cpu().numpy().transpose((0, 2, 3, 1))
 
 
     for idx in range(nb_samples):
         filename_image = os.path.join(dir_to_save, '{}_test.png'.format(idx))
         Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
     filename_images = os.path.join(dir_to_save, 'interpolation_test.png')
-    temp = make_grid(g_z.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(gz.data[:16], nrow=16).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
 
     # code for generating 16 random images
@@ -363,7 +363,7 @@ if __name__ == '__main__':
     # reconstruct testing images
     ztest = scattering_fixed_batch_test.cpu().detach().numpy()
     #ztest = torch.from_numpy(ztest).float().to(device)
-    whiten_z_test = torch.from_numpy(whitener.transform(ztrain)).float().to(device)
+    whiten_z_test = torch.from_numpy(whitener.transform(ztest)).float().to(device)
   
     # save reconstructed testing images
     g_ztest = generator.forward(whiten_z_test)

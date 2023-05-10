@@ -25,7 +25,7 @@ from torch.utils.data import Subset
 
 import torch.nn.functional as F
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda:1" if torch.cuda.is_available() else "cpu"
 
 class Generator(nn.Module):
     def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=3, filter_size=5): #does filter size change anything
@@ -196,7 +196,6 @@ if __name__ == '__main__':
             images = batch[0].float().to(device)
             batch_scatter = scattering(images).view(images.size(0), -1).cpu().detach().numpy()
             whitener.partial_fit(batch_scatter)
-            break
 
             
     print("Done whitening")
@@ -228,17 +227,10 @@ if __name__ == '__main__':
                 batch_images = Variable(current_batch[0]).float().to(device) #[128, 3, 128, 128]
                 batch_scattering = scattering(batch_images).view(batch_images.size(0), -1).cpu().detach().numpy() #[128, 248832]
                 batch_whitened_scatter = torch.from_numpy(whitener.transform(batch_scattering)).float().to(device) #[128, 128]
-                batch_inverse_scattering = generator(batch_whitened_scatter) #[128, 3, 32, 32]
-                
-                # LOSS iS COMPARING 128x128 IMAGES 
-                
-                # error message: Given groups=1, weight of size [64, 128, 7, 7], expected input[128, 32, 14, 14] to have 128 channels, but got 32 channels instead
-                loss = criterion(batch_inverse_scattering, batch_images) #here is issue: 128x128 doesnt match 64x64
-                # input = batch_inverse_scattering = from generator, 128x3x32x32
-                # target = batch_images = 128x3x128x128
+                batch_inverse_scattering = generator(batch_whitened_scatter) 
+                loss = criterion(batch_inverse_scattering, batch_images) 
                 loss.backward()
                 optimizer.step()
-                break
 
         print("Loss: ", loss)
         print('Saving results in {}'.format(dir_to_save))
@@ -260,6 +252,9 @@ if __name__ == '__main__':
     scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) #[2, 3, 81, 32, 32]
     scattering_fixed_batch_train = scattering_fixed_batch_train.reshape([2, 243, 32, 32]) 
 
+    testing1 = scattering(fixed_batch_train).view(images.size(0), -1).cpu().detach().numpy()
+    testing2 = whitener.transform(testing1)
+
     fixed_dataloader_test = DataLoader(test_dataset, batch_size=2, shuffle=False)
     fixed_batch_test = next(iter(fixed_dataloader_test))
     fixed_batch_test = fixed_batch_test[0].float().to(device)
@@ -279,10 +274,8 @@ if __name__ == '__main__':
         if t > 0:      
             zt = (1 - t) * z0 + t * z1
             batch_z_train = np.vstack((batch_z_train, zt))
-    print("z0 shape: ", z0.shape)
-    print("batch z train shape: ", batch_z_train.shape)
+    
     z = torch.from_numpy(batch_z_train).float().to(device) #[32, 243, 32, 32] -> supposed to be 128x128
-    print("z shape: ", z.shape)
     g_z = generator.forward(z) # stuck here - mat1 = 248832x32 mat2=128x2048
     g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
 
@@ -347,7 +340,7 @@ if __name__ == '__main__':
     # reconstruct training images
     z1 = scattering_fixed_batch_train.cpu().detach().numpy()
     z1 = torch.from_numpy(z1).float().to(device)
-    print("z1 shape: ", z1.shape)
+    
     # save reconstructed training images
     g_z1 = generator.forward(z1)
     filename_images = os.path.join(dir_to_save, 'train_reconstruct.png')
