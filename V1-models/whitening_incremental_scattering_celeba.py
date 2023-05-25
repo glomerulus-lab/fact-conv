@@ -114,8 +114,8 @@ class NewGenerator(nn.Module): # SCATTERING GENERATOR!!!
         )
 
     def forward(self, input_tensor):
-        print("Input shape: ", input_tensor.shape)
-        print("Output shape: ", self.main(input_tensor).shape)
+        #print("Input shape: ", input_tensor.shape)
+        #print("Output shape: ", self.main(input_tensor).shape)
         return self.main(input_tensor)
 
 
@@ -154,7 +154,8 @@ class ConvBlock(nn.Module):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Regularized inverse scattering')
-    parser.add_argument('--num_epochs', default=1, help='Number of epochs to train')
+    parser.add_argument('--whiten_epochs', default=1, help='Number of epochs to whiten')
+    parser.add_argument('--train_epochs', default=1, help='Number of epochs to train')
     parser.add_argument('--load_model', default=False, help='Load a trained model?')
     parser.add_argument('--dir_save_images', default='interpolation_images', help='Dir to save the sequence of images')
     parser.add_argument('--filename', default="V1_whitening", help='Dir to store model and results')
@@ -165,10 +166,11 @@ if __name__ == '__main__':
     num_input_channels = int(args.dim)
     print("cuda available? ", torch.cuda.is_available())
     print("device: ", device)
-    num_epochs = int(args.num_epochs)
+    train_epochs = int(args.train_epochs)
+    whiten_epochs = int(args.whiten_epochs)
     load_model = args.load_model
     dir_save_images = args.dir_save_images
-    nb_samples = args.num_samples
+    nb_samples = int(args.num_samples)
     filename = "generative_scattering_results/celeba/scattering/"+args.filename
     print("filename: ", filename)
 
@@ -190,13 +192,12 @@ if __name__ == '__main__':
     whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)
     # whitener = IncrementalPCA(n_components=32, whiten=True)
 
-    for idx_epoch in range(num_epochs): #2 epochs
+    for idx_epoch in range(whiten_epochs): #2 epochs
         print('Whitening training epoch {}'.format(idx_epoch))
         for idx, batch in enumerate(train_dataloader): #469 batches
             images = batch[0].float().to(device)
             batch_scatter = scattering(images).view(images.size(0), -1).cpu().detach().numpy()
             whitener.partial_fit(batch_scatter)
-
             
     print("Done whitening")
     
@@ -220,7 +221,7 @@ if __name__ == '__main__':
         criterion = torch.nn.L1Loss()
         optimizer = optim.Adam(generator.parameters())
 
-        for idx_epoch in range(num_epochs):
+        for idx_epoch in range(train_epochs):
             print('Generator training epoch {}'.format(idx_epoch))
             for _, current_batch in enumerate(train_dataloader):
                 generator.zero_grad()
@@ -245,69 +246,81 @@ if __name__ == '__main__':
     # We create the batch containing the linear interpolation points in the scattering space
     ########################################################################################
     
+    # whiten & scatter training data
     fixed_dataloader_train = DataLoader(train_dataset, batch_size=2, shuffle=False)
     fixed_batch_train = next(iter(fixed_dataloader_train))
     fixed_batch_train = fixed_batch_train[0].float().to(device) #2, 3, 128, 128
-
     scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) #[2, 3, 81, 32, 32]
-    scattering_fixed_batch_train = scattering_fixed_batch_train.reshape([2, 243, 32, 32]) 
+    scattering_fixed_batch_train = scattering_fixed_batch_train.reshape([2, -1]).cpu().detach().numpy()
+    whitened_batch_train = torch.from_numpy(whitener.transform(scattering_fixed_batch_train)).float().to(device)
+    z0 = whitened_batch_train.cpu().detach().numpy()[[0]] 
+    z1 = whitened_batch_train.cpu().detach().numpy()[[1]]
+    batch_z_train = np.copy(z0)
 
-    testing1 = scattering(fixed_batch_train).view(images.size(0), -1).cpu().detach().numpy()
-    testing2 = whitener.transform(testing1)
-
+    # whiten & scatter testing data
     fixed_dataloader_test = DataLoader(test_dataset, batch_size=2, shuffle=False)
     fixed_batch_test = next(iter(fixed_dataloader_test))
     fixed_batch_test = fixed_batch_test[0].float().to(device)
-    scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1) 
-
-    z0 = scattering_fixed_batch_train.cpu().detach().numpy()[[0]] #1, 243, 32, 32
-    z1 = scattering_fixed_batch_train.cpu().detach().numpy()[[1]]
-    
-    z2 = scattering_fixed_batch_test.cpu().detach().numpy()[[0]]
-    z3 = scattering_fixed_batch_test.cpu().detach().numpy()[[1]]
-    
-    batch_z_train = np.copy(z0) # 1, 243, 32, 32
+    scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1)
+    scattering_fixed_batch_test = scattering_fixed_batch_test.reshape([2, -1]).cpu().detach().numpy() 
+    whitened_batch_test = torch.from_numpy(whitener.transform(scattering_fixed_batch_test)).float().to(device)
+    z2 = whitened_batch_test.cpu().detach().numpy()[[0]]
+    z3 = whitened_batch_test.cpu().detach().numpy()[[1]]
     batch_z_test = np.copy(z2)
 
+    # set up training path
     interval = np.linspace(0, 1, nb_samples)
     for t in interval:
         if t > 0:      
             zt = (1 - t) * z0 + t * z1
             batch_z_train = np.vstack((batch_z_train, zt))
     
-    z = torch.from_numpy(batch_z_train).float().to(device) #[32, 243, 32, 32] -> supposed to be 128x128
-    g_z = generator.forward(z) # stuck here - mat1 = 248832x32 mat2=128x2048
-    g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
+    # run training path thru generator
+    z = torch.from_numpy(batch_z_train).float().to(device) 
+    gz = generator.forward(z) 
+    g_z = gz.data.cpu().numpy().transpose((0, 2, 3, 1))
 
-
+    # save individual training images
     for idx in range(nb_samples):
         filename_image = os.path.join(dir_to_save, '{}_train.png'.format(idx))
         Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
-        
+
+    # save single training image
+    filename_images = os.path.join(dir_to_save, 'interpolation_train.png')
+    temp = make_grid(gz.data[:nb_samples], nrow=16).cpu().numpy().transpose((1,2,0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
+    # set up testing path
     for t in interval:
         if t > 0:      
             zt = (1 - t) * z2 + t * z3
             batch_z_test = np.vstack((batch_z_test, zt))
 
+    # run testing path thru generator
     z = torch.from_numpy(batch_z_test).float().to(device)
-    g_z = generator.forward(z)
-    g_z = g_z.data.cpu().numpy().transpose((0, 2, 3, 1))
+    gz = generator.forward(z)
+    g_z = gz.data.cpu().numpy().transpose((0, 2, 3, 1))
 
-
+    # save individual testing images
     for idx in range(nb_samples):
         filename_image = os.path.join(dir_to_save, '{}_test.png'.format(idx))
         Image.fromarray(np.uint8((g_z[idx] + 1) * 127.5)).save(filename_image)   
 
+    # save single testing image
+    filename_images = os.path.join(dir_to_save, 'interpolation_test.png')
+    temp = make_grid(gz.data[:nb_samples], nrow=16).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
 
     # code for generating 16 random images
     #####################################
-    nb_samples = 16
+    
     z = np.random.randn(nb_samples, num_input_channels)
     z = torch.from_numpy(z).float().to(device)
-    print("z: ", z.shape)
     g_z = generator.forward(z)
+
     filename_images = os.path.join(dir_to_save, 'train_random.png')
-    temp = make_grid(g_z.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(gz.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
     
@@ -315,50 +328,42 @@ if __name__ == '__main__':
     #code for reconstructing from train/test sets
     #############################################
     
-    # save original training images
+    # scatter & whiten training data
     fixed_dataloader_train = DataLoader(train_dataset, batch_size=16, shuffle=False)
     fixed_batch_train = next(iter(fixed_dataloader_train))
     fixed_batch_train = fixed_batch_train[0].float().to(device)
-    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) 
-    
+    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1).reshape([16, -1])
+    ztrain = scattering_fixed_batch_train.cpu().detach().numpy()
+    whiten_z_train = torch.from_numpy(whitener.transform(ztrain)).float().to(device)
+
+    # save original training image
     filename_images = os.path.join(dir_to_save, 'train_original.png')
-    temp = make_grid(fixed_batch_train[0], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(fixed_batch_train, nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
         
-    # save original testing images
-
+    # scatter & whiten testing data
     fixed_dataloader_test = DataLoader(test_dataset, batch_size=16, shuffle=False)
     fixed_batch_test = next(iter(fixed_dataloader_test))
     fixed_batch_test = fixed_batch_test[0].float().to(device)
-    scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1)
-    
+    scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1).reshape([16, -1])
+    ztest = scattering_fixed_batch_test.cpu().detach().numpy()
+    whiten_z_test = torch.from_numpy(whitener.transform(ztest)).float().to(device)
+
+    # save original testing image
     filename_images = os.path.join(dir_to_save, 'test_original.png')
-    temp = make_grid(fixed_batch_test[0], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(fixed_batch_test, nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
-
-    # reconstruct training images
-    z1 = scattering_fixed_batch_train.cpu().detach().numpy()
-    z1 = torch.from_numpy(z1).float().to(device)
-    
     # save reconstructed training images
-    g_z1 = generator.forward(z1)
+    g_z1 = generator.forward(whiten_z_train)
     filename_images = os.path.join(dir_to_save, 'train_reconstruct.png')
     temp = make_grid(g_z1.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
-    # reconstruct testing images
-
-    z2 = scattering_fixed_batch_test.cpu().detach().numpy()
-    z2 = torch.from_numpy(z2).float().to(device)
-  
     # save reconstructed testing images
-    g_z2 = generator.forward(z2)
+    g_z2 = generator.forward(whiten_z_test)
     filename_images = os.path.join(dir_to_save, 'test_reconstruct.png')
     temp = make_grid(g_z2.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
-    
-# trying to make train & test original images save as 4x4 grid!!
-# also trying to make train & test reconstruction images NOT THE SAME and like actual reconstructions!
    

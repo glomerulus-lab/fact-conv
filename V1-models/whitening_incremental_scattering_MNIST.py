@@ -22,7 +22,7 @@ import V1_models
 
 from torchvision.utils import make_grid
 
-device = "cuda:1" if torch.cuda.is_available() else "cpu"
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print("device: ", device)
 class Generator(nn.Module):
     def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=1, filter_size=3):
@@ -89,7 +89,7 @@ if __name__ == '__main__':
         transforms.Normalize((0.5,), (0.5,))  # Normalization for reproducibility issues
     ])
     
-    mnist_dir = get_dataset_dir("MNIST", create=True)
+    mnist_dir = get_dataset_dir("/research/harris/vivian/v1-models/datasets/", create=True)
     train_dataset = datasets.MNIST(mnist_dir, train=True, download=True, transform=transforms_to_apply)
     
         
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     
     whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)
  
-    for idx_epoch in range(1): #2 epochs
+    for idx_epoch in range(num_epochs): #2 epochs
         print('Whitening training epoch {}'.format(idx_epoch))
         for idx, batch in enumerate(dataloader): #469 batches
             images = batch[0].float().to(device)
@@ -250,4 +250,49 @@ if __name__ == '__main__':
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
     
     
+#code for reconstructing from train/test sets
+    #############################################
+
+    # save original training images
+    fixed_dataloader_train = DataLoader(train_dataset, batch_size=16, shuffle=False)
+    fixed_batch_train = next(iter(fixed_dataloader_train))
+    fixed_batch_train = fixed_batch_train[0].float().to(device)
+    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1).reshape([16, -1])
+    ztrain = scattering_fixed_batch_train.cpu().detach().numpy()
+    whiten_z_train = torch.from_numpy(whitener.transform(ztrain)).float().to(device)
+
+
+    filename_images = os.path.join(dir_to_save, 'train_original.png')
+    temp = make_grid(fixed_batch_train, nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
+    # save original testing images
+
+    fixed_dataloader_test = DataLoader(test_dataset, batch_size=16, shuffle=False)
+    fixed_batch_test = next(iter(fixed_dataloader_test))
+    fixed_batch_test = fixed_batch_test[0].float().to(device)
+    scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1).reshape([16, -1])
+    ztest = scattering_fixed_batch_test.cpu().detach().numpy()
+    whiten_z_test = torch.from_numpy(whitener.transform(ztest)).float().to(device)
+
+    filename_images = os.path.join(dir_to_save, 'test_original.png')
+    temp = make_grid(fixed_batch_test, nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
+
+    # reconstruct training images
+
+    # save reconstructed training images
+    g_z1 = generator.forward(whiten_z_train)
+    filename_images = os.path.join(dir_to_save, 'train_reconstruct.png')
+    temp = make_grid(g_z1.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
+    # reconstruct testing images
+
+    # save reconstructed testing images
+    g_z2 = generator.forward(whiten_z_test)
+    filename_images = os.path.join(dir_to_save, 'test_reconstruct.png')
+    temp = make_grid(g_z2.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
    
