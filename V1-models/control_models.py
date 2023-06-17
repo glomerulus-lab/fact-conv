@@ -79,7 +79,8 @@ class Gaussian_CIFAR10(nn.Module):
                                   bias=bias)
         self.clf = nn.Linear((3 * (8 ** 2)) + (hidden_dim * (8 ** 2)) + (hidden_dim * (8 ** 2)), 10)
         self.relu = nn.ReLU()
-        self.bn = nn.BatchNorm2d(3)
+        self.bn_x = nn.BatchNorm2d(3)
+        self.bn_h1 = nn.BatchNorm2d(hidden_dim)
         self.bn0 = nn.BatchNorm2d(3)
         self.bn1 = nn.BatchNorm2d(hidden_dim)
         self.bn2 = nn.BatchNorm2d(hidden_dim)
@@ -98,8 +99,8 @@ class Gaussian_CIFAR10(nn.Module):
             self.v1_layer2.bias.requires_grad = False
         
     def forward(self, x):
-        h1 = self.relu(self.v1_layer(self.bn(x)))  
-        h2 = self.relu(self.v1_layer2(h1))  
+        h1 = self.relu(self.v1_layer(self.bn_x(x))) 
+        h2 = self.relu(self.v1_layer2(self.bn_h1(h1)))
         
         pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=1)  
         x_pool = self.bn0(pool(x)) 
@@ -211,7 +212,8 @@ class Uniform_CIFAR10(nn.Module):
                                   bias=bias)
         self.clf = nn.Linear((3 * (8 ** 2)) + (hidden_dim * (8 ** 2)) + (hidden_dim * (8 ** 2)), 10)
         self.relu = nn.ReLU()
-        self.bn = nn.BatchNorm2d(3)
+        self.bn_x = nn.BatchNorm2d(3)
+        self.bn_h1 = nn.BatchNorm2d(hidden_dim)
         self.bn0 = nn.BatchNorm2d(3)
         self.bn1 = nn.BatchNorm2d(hidden_dim)
         self.bn2 = nn.BatchNorm2d(hidden_dim)
@@ -224,8 +226,8 @@ class Uniform_CIFAR10(nn.Module):
             self.v1_layer2.bias.requires_grad = False
         
     def forward(self, x):  
-        h1 = self.relu(self.v1_layer(self.bn(x))) 
-        h2 = self.relu(self.v1_layer2(h1))  
+        h1 = self.relu(self.v1_layer(self.bn_x(x))) 
+        h2 = self.relu(self.v1_layer2(self.bn_h1(h1)))
         
         pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=1)  
         x_pool = self.bn0(pool(x))  

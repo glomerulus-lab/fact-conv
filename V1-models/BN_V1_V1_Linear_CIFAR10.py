@@ -85,9 +85,9 @@ if __name__ == '__main__':
     test_accuracy = []
 
     for epoch in range(0, args.num_epoch):
-        if epoch%20==0:
-            optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9,weight_decay=0.0005, nesterov=True)
-            args.lr*=0.2
+        if epoch % 20 == 0:
+            optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0005, nesterov=True)
+            args.lr *= 0.2
 
         V1_models.train(model, device, train_loader, optimizer, epoch+1)
         loss, accuracy = V1_models.test(model, device, test_loader, epoch+1)
