@@ -25,7 +25,9 @@ from torch.utils.data import Subset
 
 import torch.nn.functional as F
 
-device = "cuda:1" if torch.cuda.is_available() else "cpu"
+from pytorch_memlab import MemReporter
+
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 class Generator(nn.Module):
     def __init__(self, num_input_channels, num_hidden_channels, num_output_channels=3, filter_size=5): #does filter size change anything
@@ -77,8 +79,6 @@ class Generator(nn.Module):
         )
 
     def forward(self, input_tensor):
-        #print("pre main shape: ", input_tensor.size())
-        #print("post main shape: ", self.main(input_tensor).size())
         return self.main(input_tensor)
 
 class View(nn.Module):
@@ -89,48 +89,41 @@ class View(nn.Module):
     def forward(self, input_tensor):
         return input_tensor.view(*self.shape)
     
-class NewGenerator(nn.Module): # SCATTERING GENERATOR!!!
-    def __init__(self, nb_channels_first_layer=4, z_dim=2048, size_first_layer=4):
+class NewGenerator(nn.Module): 
+    def __init__(self, nb_channels_input, z_dim):
         super(NewGenerator, self).__init__()
-
-        #nb_channels_input = nb_channels_first_layer * 32  #32 --> 128; 16 --> 64
-        nb_channels_input = nb_channels_first_layer * 32
-        
+        size_first_layer=4       
         self.main = nn.Sequential(
-            nn.Linear(in_features=z_dim,
+            nn.Linear(in_features=z_dim, 
                       out_features=size_first_layer * size_first_layer * nb_channels_input,
-                      bias=False),
+                      bias=True),
             View(-1, nb_channels_input, size_first_layer, size_first_layer),
             nn.BatchNorm2d(nb_channels_input, eps=0.001, momentum=0.9),
             nn.ReLU(inplace=True),
-
-            ConvBlock(nb_channels_first_layer * 32, nb_channels_first_layer * 16, upsampling=True),
-            ConvBlock(nb_channels_first_layer * 16, nb_channels_first_layer * 8, upsampling=True),
-            ConvBlock(nb_channels_first_layer * 8, nb_channels_first_layer * 4, upsampling=True),
-            ConvBlock(nb_channels_first_layer * 4, nb_channels_first_layer * 2, upsampling=True),
-            ConvBlock(nb_channels_first_layer * 2, nb_channels_first_layer, upsampling=True),
-
-            ConvBlock(nb_channels_first_layer, nb_channels_output=3, tanh=True) #goal is shape 128x128
+ 
+            ConvBlock(nb_channels_input, int(nb_channels_input/2), upsampling=True),
+            ConvBlock(int(nb_channels_input/2), int(nb_channels_input/4), upsampling=True),
+            ConvBlock(int(nb_channels_input/4), int(nb_channels_input/8), upsampling=True),
+            ConvBlock(int(nb_channels_input/8), int(nb_channels_input/16), upsampling=True),
+            ConvBlock(int(nb_channels_input/16), nb_channels_output=3, tanh=False, upsampling=True)
         )
 
     def forward(self, input_tensor):
-        #print("Input shape: ", input_tensor.shape)
-        #print("Output shape: ", self.main(input_tensor).shape)
         return self.main(input_tensor)
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, nb_channels_input, nb_channels_output, upsampling=False, tanh=False):
+    def __init__(self, nb_channels_input, nb_channels_output, upsampling, tanh=False):
         super(ConvBlock, self).__init__()
 
         self.tanh = tanh
         self.upsampling = upsampling
 
-        filter_size = 5
+        filter_size = 7
         padding = (filter_size - 1) // 2
 
-        self.pad = nn.ReflectionPad2d(padding)
-        self.conv = nn.Conv2d(nb_channels_input, nb_channels_output, filter_size, bias=False)
+        self.pad = nn.ReplicationPad2d(padding)
+        self.conv = nn.Conv2d(nb_channels_input, nb_channels_output, filter_size, bias=True)
         self.bn_layer = nn.BatchNorm2d(nb_channels_output, eps=0.001, momentum=0.9)
 
     def forward(self, input_tensor):
@@ -150,7 +143,6 @@ class ConvBlock(nn.Module):
 
         return output
 
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Regularized inverse scattering')
@@ -158,23 +150,27 @@ if __name__ == '__main__':
     parser.add_argument('--train_epochs', default=1, help='Number of epochs to train')
     parser.add_argument('--load_model', default=False, help='Load a trained model?')
     parser.add_argument('--dir_save_images', default='interpolation_images', help='Dir to save the sequence of images')
-    parser.add_argument('--filename', default="V1_whitening", help='Dir to store model and results')
-    parser.add_argument('--dim', default=100, help='num input channels')
-    parser.add_argument('--num_samples', default=32, help="num samples for image interpolation")
+    parser.add_argument('--filename', default="scatter_whitening", help='Dir to store model and results')
+    parser.add_argument('--hidden_dim', default=1024, help='number of input channels in generator')
+    parser.add_argument('--num_samples', default=16, help="num samples for image interpolation")
+    parser.add_argument('--batch_size', default=128, help="training batchsize")
+    parser.add_argument('--z_dim', default=512, help="whitening batch size")
     args = parser.parse_args()
     
-    num_input_channels = int(args.dim)
-    print("cuda available? ", torch.cuda.is_available())
     print("device: ", device)
     train_epochs = int(args.train_epochs)
+    batch_size = int(args.batch_size)
     whiten_epochs = int(args.whiten_epochs)
     load_model = args.load_model
     dir_save_images = args.dir_save_images
     nb_samples = int(args.num_samples)
-    filename = "generative_scattering_results/celeba/scattering/"+args.filename
-    print("filename: ", filename)
-
-    dir_to_save = get_cache_dir(filename)
+    hidden_dim = int(args.hidden_dim)
+    z_dim = int(args.z_dim)
+    
+    dir_to_save = "/research/harris/vivian/v1-models/generative_scattering_results/celeba/scattering/"+args.filename
+    if not os.path.exists(dir_to_save):
+        os.makedirs(dir_to_save)
+    os.chdir(dir_to_save)
 
     transforms_to_apply = transforms.Compose([
         transforms.ToTensor(),
@@ -184,36 +180,26 @@ if __name__ == '__main__':
     
     root = "/research/harris/vivian/v1-models/datasets/"
     train_dataset = datasets.CelebA(root=root, split="train", download=False, transform=transforms_to_apply)
-    train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True, drop_last=True)
+    whiten_dataloader = DataLoader(train_dataset, batch_size=z_dim, shuffle=True, pin_memory=True, drop_last=True)
     test_dataset = datasets.CelebA(root=root, split="test", download=False, transform=transforms_to_apply)
 
-    scattering = Scattering(J=2, shape=(128,128)).to(device)
-    
-    whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)
-    # whitener = IncrementalPCA(n_components=32, whiten=True)
+    scattering = Scattering(J=4, shape=(128,128)).to(device)
+    whitener = IncrementalPCA(n_components=z_dim, whiten=True)
 
-    for idx_epoch in range(whiten_epochs): #2 epochs
+    for idx_epoch in range(whiten_epochs): 
         print('Whitening training epoch {}'.format(idx_epoch))
-        for idx, batch in enumerate(train_dataloader): #469 batches
+        for idx, batch in enumerate(whiten_dataloader): 
             images = batch[0].float().to(device)
             batch_scatter = scattering(images).view(images.size(0), -1).cpu().detach().numpy()
             whitener.partial_fit(batch_scatter)
-            
-    print("Done whitening")
     
-    
-    num_hidden_channels = 128
-
     #generator = Generator(num_input_channels, num_hidden_channels).to(device)
-    print("Num input channels: ", num_input_channels)
-    print("Num hidden channels: ", num_hidden_channels)
-    generator = NewGenerator(nb_channels_first_layer=4, z_dim=128, size_first_layer=4).to(device)
+    generator = NewGenerator(nb_channels_input=num_hidden_channels, z_dim=z_dim).to(device)
         
     generator.train()
     
     # Either train the network or load a trained model
-    ##################################################
-    
     if load_model:
         filename_model = os.path.join(dir_to_save, 'model.pth')
         generator.load_state_dict(torch.load(filename_model))
@@ -225,32 +211,29 @@ if __name__ == '__main__':
             print('Generator training epoch {}'.format(idx_epoch))
             for _, current_batch in enumerate(train_dataloader):
                 generator.zero_grad()
-                batch_images = Variable(current_batch[0]).float().to(device) #[128, 3, 128, 128]
-                batch_scattering = scattering(batch_images).view(batch_images.size(0), -1).cpu().detach().numpy() #[128, 248832]
-                batch_whitened_scatter = torch.from_numpy(whitener.transform(batch_scattering)).float().to(device) #[128, 128]
-                batch_inverse_scattering = generator(batch_whitened_scatter) 
+                batch_images = Variable(current_batch[0]).float().to(device) 
+                batch_scattering = scattering(batch_images) 
+                scattering_reshape = batch_scattering.view(batch_images.size(0), -1).cpu().detach().numpy()
+                batch_whitened_scatter = torch.from_numpy(whitener.transform(scattering_reshape)).float().to(device) 
+                batch_inverse_scattering = generator(batch_whitened_scatter)
                 loss = criterion(batch_inverse_scattering, batch_images) 
                 loss.backward()
                 optimizer.step()
-
+                
         print("Loss: ", loss)
         print('Saving results in {}'.format(dir_to_save))
-       
-
+    
         torch.save(generator.state_dict(), os.path.join(dir_to_save, 'model.pth'))
 
     generator.eval()
 
-    
-   
-    # We create the batch containing the linear interpolation points in the scattering space
-    ########################################################################################
+    # linear interpolation
     
     # whiten & scatter training data
     fixed_dataloader_train = DataLoader(train_dataset, batch_size=2, shuffle=False)
     fixed_batch_train = next(iter(fixed_dataloader_train))
-    fixed_batch_train = fixed_batch_train[0].float().to(device) #2, 3, 128, 128
-    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) #[2, 3, 81, 32, 32]
+    fixed_batch_train = fixed_batch_train[0].float().to(device) 
+    scattering_fixed_batch_train = scattering(fixed_batch_train).squeeze(1) 
     scattering_fixed_batch_train = scattering_fixed_batch_train.reshape([2, -1]).cpu().detach().numpy()
     whitened_batch_train = torch.from_numpy(whitener.transform(scattering_fixed_batch_train)).float().to(device)
     z0 = whitened_batch_train.cpu().detach().numpy()[[0]] 
@@ -310,24 +293,19 @@ if __name__ == '__main__':
     filename_images = os.path.join(dir_to_save, 'interpolation_test.png')
     temp = make_grid(gz.data[:nb_samples], nrow=16).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
-
-
-    # code for generating 16 random images
-    #####################################
     
-    z = np.random.randn(nb_samples, num_input_channels)
+
+    # generating 16 random images
+    z = np.random.randn(nb_samples, whiten_batch)
     z = torch.from_numpy(z).float().to(device)
-    g_z = generator.forward(z)
+    g_z = generator.forward(z) 
 
     filename_images = os.path.join(dir_to_save, 'train_random.png')
-    temp = make_grid(gz.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
+    temp = make_grid(g_z.data[:16], nrow=4).cpu().numpy().transpose((1, 2, 0))
     Image.fromarray(np.uint8((temp + 1) * 127.5)).save(filename_images)
+
     
-    
-    
-    #code for reconstructing from train/test sets
-    #############################################
-    
+    # reconstructing from train/test sets
     # scatter & whiten training data
     fixed_dataloader_train = DataLoader(train_dataset, batch_size=16, shuffle=False)
     fixed_batch_train = next(iter(fixed_dataloader_train))
@@ -348,6 +326,7 @@ if __name__ == '__main__':
     scattering_fixed_batch_test = scattering(fixed_batch_test).squeeze(1).reshape([16, -1])
     ztest = scattering_fixed_batch_test.cpu().detach().numpy()
     whiten_z_test = torch.from_numpy(whitener.transform(ztest)).float().to(device)
+
 
     # save original testing image
     filename_images = os.path.join(dir_to_save, 'test_original.png')
