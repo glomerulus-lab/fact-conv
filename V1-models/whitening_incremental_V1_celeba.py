@@ -191,8 +191,10 @@ if __name__ == '__main__':
          print('Whitening training epoch {}'.format(idx_epoch))
          for idx, batch in enumerate(train_dataloader): #469 batches
              images = batch[0].float().to(device)
-             batch_scatter = scattering(images).view(images.size(0), -1).cpu().detach().numpy()
+             batch_scatter = scattering(images).detach()
+             batch_scatter = batch_scatter.view(images.size(0), -1).numpy(force=True)
              whitener.partial_fit(batch_scatter)
+             del batch_scatter, images
              
     print("Done whitening")
     

@@ -52,6 +52,7 @@ if __name__ == '__main__':
     start = datetime.now()
 
     model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    #model = V1_models.Learned_Rand_Scat_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
 
     # DataLoaders
     if use_cuda:
@@ -65,19 +66,21 @@ if __name__ == '__main__':
                                      std=[0.229, 0.224, 0.225])
 
     train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=True, transform=transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(32, 4),
-            transforms.ToTensor(),
-            normalize,
-        ]), download=True),
-        batch_size=128, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
+        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=True,
+                         transform=transforms.Compose([
+                             transforms.RandomHorizontalFlip(),
+                             transforms.RandomCrop(32, 4),
+                             transforms.ToTensor(),
+                             normalize,
+                         ]), download=True),
+        batch_size=512, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=False, transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])),
+        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=False,
+                         transform=transforms.Compose([
+                             transforms.ToTensor(),
+                             normalize,
+                         ])),
         batch_size=128, shuffle=False, num_workers=num_workers, pin_memory=pin_memory)
 
 
