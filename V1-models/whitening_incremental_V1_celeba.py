@@ -19,6 +19,7 @@ import pdb
 import torchvision
 from sklearn.decomposition import IncrementalPCA
 import V1_models
+import V1_models_kam
 
 from torchvision.utils import make_grid
 from torch.utils.data import Subset
@@ -182,7 +183,7 @@ if __name__ == '__main__':
     train_dataset = datasets.CelebA(root=root, split="train", download=False, transform=transforms_to_apply)
     train_dataloader = DataLoader(train_dataset, batch_size=128, shuffle=False, pin_memory=True, drop_last=True) 
 
-    scattering = V1_models.Scattering_V1_celeba(num_input_channels, 2, 0.1, 1, True).to(device)
+    scattering = V1_models_kam.Scattering_V1_celeba(num_input_channels, 2, 0.1, 1, True).to(device)
     scattering.requires_grad = False
     
     whitener = IncrementalPCA(n_components=num_input_channels, whiten=True)
@@ -190,9 +191,10 @@ if __name__ == '__main__':
     for idx_epoch in range(white_epochs): 
          print('Whitening training epoch {}'.format(idx_epoch))
          for idx, batch in enumerate(train_dataloader): #469 batches
-             images = batch[0].float().to(device)
-             batch_scatter = scattering(images).detach()
-             batch_scatter = batch_scatter.view(images.size(0), -1).numpy(force=True)
+             with torch.no_grad():
+                 images = batch[0].float().to(device)
+                 batch_scatter = scattering(images).detach()
+                 batch_scatter = batch_scatter.view(images.size(0), -1).numpy(force=True)
              whitener.partial_fit(batch_scatter)
              del batch_scatter, images
              
