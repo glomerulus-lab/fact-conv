@@ -1,0 +1,5 @@
+#!/bin/bash
+source /home/whitev4/anaconda3/etc/profile.d/conda.sh
+conda activate random_features
+python3 whitening_incremental_V1_celeba.py --dim 128 --batch_size 64 --filename "whiten_batch_512_epoch_1" --whiten_epochs 1 --num_samples 16 --whiten_batch 512 --train_epochs 1 
+

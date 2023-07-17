@@ -1,0 +1,10 @@
+#!/home/whitev4/anaconda3/envs/random_features/bin/python
+Universe = vanilla
+Executable = v1generator
+Output = out.log
+Error = err.log
+Log = condor.log
+Request_Gpus = 1
+Request_Memory=1GB
+Queue                                                                                                                                                                                   
++CSCI_GrpDesktop = True
