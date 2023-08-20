@@ -12,7 +12,7 @@ import V1_models
 
     
 def save_model(args, model, loss, accuracy):
-    src = "/research/harris/vivian/v1-models/saved-models/CIFAR10/"
+    src = "/research/harris/vivian/v1-models/saved-models/classification/CIFAR10/"
     model_dir =  src + args.name
     if not os.path.exists(model_dir): 
         os.makedirs(model_dir)
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', type=int, default=100, help='number of hidden dimensions in model')
     parser.add_argument('--num_epoch', type=int, default=90, help='number of epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
-    parser.add_argument('--s', type=int, default=2, help='V1 size')
+    parser.add_argument('--s', type=int, default=1, help='V1 size')
     parser.add_argument('--f', type=float, default=0.1, help='V1 spatial frequency')
     parser.add_argument('--scale', type=int, default=1, help='V1 scale')
     parser.add_argument('--name', type=str, default='BN_V1_V1_Linear', help='filename for saved model')
@@ -52,6 +52,10 @@ if __name__ == '__main__':
     start = datetime.now()
 
     model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    model_init = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    model_init.load_state_dict(model.state_dict())
+
+    lam = 1
 
     # DataLoaders
     if use_cuda:
@@ -65,7 +69,7 @@ if __name__ == '__main__':
                                      std=[0.229, 0.224, 0.225])
 
     train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=True, transform=transforms.Compose([
+        datasets.CIFAR10(root="/research/harris/vivian/v1-models/datasets/new_CIFAR10", train=True, transform=transforms.Compose([
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
@@ -74,7 +78,7 @@ if __name__ == '__main__':
         batch_size=128, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=False, transform=transforms.Compose([
+        datasets.CIFAR10(root="/research/harris/vivian/v1-models/datasets/new_CIFAR10", train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
         ])),
@@ -89,7 +93,7 @@ if __name__ == '__main__':
             optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9, weight_decay=0.0005, nesterov=True)
             args.lr *= 0.2
 
-        V1_models.train(model, device, train_loader, optimizer, epoch+1)
+        V1_models.train(model, model_init, lam, device, train_loader, optimizer, epoch+1)
         loss, accuracy = V1_models.test(model, device, test_loader, epoch+1)
         test_loss.append(loss)
         test_accuracy.append(accuracy)

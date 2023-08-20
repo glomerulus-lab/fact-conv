@@ -8,15 +8,25 @@ import gc
 from pytorch_memlab import LineProfiler, MemReporter, profile, set_target_gpu
 set_target_gpu(1)
 
-def train(model, device, train_loader, optimizer, epoch):
+def train(model, model_init, lam, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.cross_entropy(output, target) 
+        loss = F.cross_entropy(output, target) + lam * regularizer(model, model_init)
         loss.backward()
         optimizer.step()
+
+def regularizer(model, model_init):
+    cost = 0
+    for name, new_param in model.scattering_layers.state_dict().items():
+        if 'weight' in name:
+            init_param = model_init.scattering_layers.state_dict()[name]
+            cost += torch.norm(new_param - init_param) ** 2 #/ torch.prod(torch.Tensor(new_param.shape))
+    return cost
+
+    
              
                       
 def test(model, device, test_loader, epoch):
@@ -51,7 +61,9 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         self.bn0 = nn.BatchNorm2d(3)
         self.bn1 = nn.BatchNorm2d(hidden_dim)
         self.bn2 = nn.BatchNorm2d(hidden_dim)
-        
+       
+        self.scattering_layers = nn.ModuleList([self.v1_layer, self.v1_layer2])
+
         scale1 = 1 / (3 * 7 * 7)
         scale2 = 1 / (hidden_dim * 7 * 7)
         center = (3., 3.)
