@@ -14,7 +14,8 @@ def train(model, model_init, lam, device, train_loader, optimizer, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.cross_entropy(output, target) + lam * regularizer(model, model_init)
+        loss = F.cross_entropy(output, target) + \
+            lam * regularizer(model, model_init)
         loss.backward()
         optimizer.step()
 
@@ -23,12 +24,10 @@ def regularizer(model, model_init):
     for name, new_param in model.scattering_layers.state_dict().items():
         if 'weight' in name:
             init_param = model_init.scattering_layers.state_dict()[name]
-            cost += torch.norm(new_param - init_param) ** 2 #/ torch.prod(torch.Tensor(new_param.shape))
+            cost += torch.norm(new_param - init_param) ** 2
+            #/ torch.prod(torch.Tensor(new_param.shape))
     return cost
 
-    
-             
-                      
 def test(model, device, test_loader, epoch):
     model.eval()
     test_loss = 0
@@ -37,10 +36,12 @@ def test(model, device, test_loader, epoch):
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += F.cross_entropy(output, target, reduction='sum').item() # sum up batch loss
-            pred = output.max(1, keepdim=True)[1] # get the index of the max log-probability
+            # sum up batch loss
+            test_loss += F.cross_entropy(output, target, reduction='sum').item()
+            # get the index of the max log-probability
+            pred = output.max(1, keepdim=True)[1]
             correct += pred.eq(target.view_as(pred)).sum().item()
-
+            
     test_loss /= len(test_loader.dataset)
     accuracy = 100. * correct / len(test_loader.dataset)
     
@@ -52,9 +53,13 @@ def test(model, device, test_loader, epoch):
 class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
         super(BN_V1_V1_LinearLayer_CIFAR10, self).__init__()
-        self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, bias=bias) 
-        self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, bias=bias)
-        self.clf = nn.Linear((3 * (8 ** 2)) + (hidden_dim * (8 ** 2)) + (hidden_dim * (8 ** 2)), 10)
+        self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim,
+                                  kernel_size=7, stride=1, padding=3, bias=bias) 
+        self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim,
+                                   out_channels=hidden_dim,
+                                   kernel_size=7, stride=1, padding=3, bias=bias)
+        self.clf = nn.Linear((3 * (8 ** 2)) + (hidden_dim * (8 ** 2)) +
+                             (hidden_dim * (8 ** 2)), 10)
         self.relu = nn.ReLU()
         self.bn_x = nn.BatchNorm2d(3)
         self.bn_h1 = nn.BatchNorm2d(hidden_dim)
