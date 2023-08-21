@@ -8,14 +8,14 @@ import gc
 from pytorch_memlab import LineProfiler, MemReporter, profile, set_target_gpu
 set_target_gpu(1)
 
-def train(model, model_init, lam, device, train_loader, optimizer, epoch):
+def train(model, model_init, penalty, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = F.cross_entropy(output, target) + \
-            lam * regularizer(model, model_init)
+            penalty * regularizer(model, model_init)
         loss.backward()
         optimizer.step()
 
@@ -24,8 +24,7 @@ def regularizer(model, model_init):
     for name, new_param in model.scattering_layers.state_dict().items():
         if 'weight' in name:
             init_param = model_init.scattering_layers.state_dict()[name]
-            cost += torch.norm(new_param - init_param) ** 2
-            #/ torch.prod(torch.Tensor(new_param.shape))
+            cost += torch.mean( (new_param - init_param) ** 2 )
     return cost
 
 def test(model, device, test_loader, epoch):
