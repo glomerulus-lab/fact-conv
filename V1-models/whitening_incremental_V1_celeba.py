@@ -191,6 +191,7 @@ if __name__ == '__main__':
     for idx_epoch in range(white_epochs): 
          print('Whitening training epoch {}'.format(idx_epoch))
          for idx, batch in enumerate(train_dataloader): #469 batches
+             print('batch {}'.format(idx))
              with torch.no_grad():
                  images = batch[0].float().to(device)
                  batch_scatter = scattering(images).detach()
