@@ -66,7 +66,7 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         self.bn0 = nn.BatchNorm2d(3)
         self.bn1 = nn.BatchNorm2d(hidden_dim)
         self.bn2 = nn.BatchNorm2d(hidden_dim)
-       
+        
         self.scattering_layers = nn.ModuleList([self.v1_layer, self.v1_layer2])
 
         scale1 = 1 / (3 * 7 * 7)
@@ -74,14 +74,14 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         center = (3., 3.)
         
         V1_init(self.v1_layer, size, spatial_freq, center, scale1, bias, seed)
-        self.v1_layer.weight.requires_grad = False
+        # self.v1_layer.weight.requires_grad = False
         
         V1_init(self.v1_layer2, size, spatial_freq, center, scale2, bias, seed)
-        self.v1_layer2.weight.requires_grad = False
+        # self.v1_layer2.weight.requires_grad = False
         
-        if bias==True:
-            self.v1_layer.bias.requires_grad = False
-            self.v1_layer2.bias.requires_grad = False
+        # if bias==True:
+        #     self.v1_layer.bias.requires_grad = False
+        #     self.v1_layer2.bias.requires_grad = False
         
     def forward(self, x):  
         h1 = self.relu(self.v1_layer(self.bn_x(x))) 
