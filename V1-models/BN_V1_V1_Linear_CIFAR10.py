@@ -43,9 +43,10 @@ if __name__ == '__main__':
     parser.add_argument('--f', type=float, default=0.1,
                         help='V1 spatial frequency')
     parser.add_argument('--scale', type=int, default=1, help='V1 scale')
-    # TODO(kamdh): deprecate 'name' and merge into 'dir'
+    # TODO(kamdh): change to filename
     parser.add_argument('--name', type=str, default='BN_V1_V1_Linear',
-                        help='filename for saved model')
+                        help='subdirectory for this simulation')
+    # TODO(kamdh): deprecate
     parser.add_argument('--trial', type=int, default=1, help='trial number')
     parser.add_argument('--bias', dest='bias',
                         type=lambda x: bool(strtobool(x)),
@@ -54,9 +55,10 @@ if __name__ == '__main__':
                         help="which device to use (0 or 1)")
     parser.add_argument('--penalty', type=float, default=0.,
                         help="regularization term")
+    # TODO(kamdh): deprecate
     parser.add_argument('--dir', typ=str,
                         default="../saved-models/classification/CIFAR10",
-                        help="base directory")
+                        help="directory to save in")
     args = parser.parse_args()
     initial_lr = args.lr
 
