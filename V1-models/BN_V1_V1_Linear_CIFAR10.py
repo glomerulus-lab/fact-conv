@@ -50,6 +50,8 @@ if __name__ == '__main__':
                         default=True, help='bias=True or False')
     parser.add_argument('--device', type=int, default=0,
                         help="which device to use (0 or 1)")
+    parser.add_argument('--lambda', type=float, default=0.,
+                        help="regularization term")
     args = parser.parse_args()
     initial_lr = args.lr
 
@@ -64,7 +66,6 @@ if __name__ == '__main__':
         args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
     model_init.load_state_dict(model.state_dict())
 
-    lam = 1
 
     # DataLoaders
     if use_cuda:
@@ -112,7 +113,7 @@ if __name__ == '__main__':
                                         nesterov=True)
             args.lr *= 0.2
 
-        V1_models.train(model, model_init, lam, device, train_loader, optimizer, epoch+1)
+        V1_models.train(model, model_init, args.lam, device, train_loader, optimizer, epoch+1)
         loss, accuracy = V1_models.test(model, device, test_loader, epoch+1)
         test_loss.append(loss)
         test_accuracy.append(accuracy)
