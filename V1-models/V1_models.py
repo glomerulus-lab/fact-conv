@@ -99,7 +99,6 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         concat = torch.cat((x_flat, h1_flat, h2_flat), 1) 
         
         beta = self.clf(concat)
-       
         return beta
     
 

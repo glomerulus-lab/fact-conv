@@ -12,14 +12,15 @@ import V1_models
 
     
 def save_model(args, model, loss, accuracy):
-    src = "/research/harris/vivian/v1-models/saved-models/classification/CIFAR10/"
-    model_dir =  src + args.name
+    # src = "/research/harris/vivian/v1-models/saved-models/classification/CIFAR10/"
+    # model_dir =  src + args.name
+    model_dir = os.path.join(args.dir, args.name)
     if not os.path.exists(model_dir): 
         os.makedirs(model_dir)
     os.chdir(model_dir)
     
     #saves loss & accuracy in the trial directory -- all trials
-    trial_dir = model_dir + "/trial_" + str(args.trial)
+    trial_dir = os.path.join(model_dir, f"trial_{args.trial}")
     if not os.path.exists(trial_dir): 
         os.makedirs(trial_dir)
     os.chdir(trial_dir)
@@ -42,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--f', type=float, default=0.1,
                         help='V1 spatial frequency')
     parser.add_argument('--scale', type=int, default=1, help='V1 scale')
+    # TODO(kamdh): deprecate 'name' and merge into 'dir'
     parser.add_argument('--name', type=str, default='BN_V1_V1_Linear',
                         help='filename for saved model')
     parser.add_argument('--trial', type=int, default=1, help='trial number')
@@ -52,6 +54,9 @@ if __name__ == '__main__':
                         help="which device to use (0 or 1)")
     parser.add_argument('--penalty', type=float, default=0.,
                         help="regularization term")
+    parser.add_argument('--dir', typ=str,
+                        default="../saved-models/classification/CIFAR10",
+                        help="base directory")
     args = parser.parse_args()
     initial_lr = args.lr
 
