@@ -50,7 +50,7 @@ if __name__ == '__main__':
                         default=True, help='bias=True or False')
     parser.add_argument('--device', type=int, default=0,
                         help="which device to use (0 or 1)")
-    parser.add_argument('--penality', type=float, default=0.,
+    parser.add_argument('--penalty', type=float, default=0.,
                         help="regularization term")
     args = parser.parse_args()
     initial_lr = args.lr
