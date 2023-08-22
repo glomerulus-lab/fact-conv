@@ -20,7 +20,7 @@ def train(model, model_init, penalty, device, train_loader, optimizer, epoch):
         optimizer.step()
 
 def regularizer(model, model_init):
-    cost = 0
+    cost = 0.
     for name, new_param in model.scattering_layers.state_dict().items():
         if 'weight' in name:
             init_param = model_init.scattering_layers.state_dict()[name]
