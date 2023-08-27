@@ -19,10 +19,10 @@ class LearnableLinearCov(nn.Module):
         self.factory_kwargs = factory_kwargs
 
         self.register_buffer("weight",
-                             torch.randn((out_features, in_features),
+                             torch.empty((out_features, in_features),
                                          **factory_kwargs))
 
-        self.triu_len = torch.triu_indices(in_features, in_features).shape[1]
+        triu_len = torch.triu_indices(in_features, in_features).shape[1]
         self.tri_vec = Parameter(torch.empty((triu_len,), **factory_kwargs))
         if bias:
             self.bias = Parameter(torch.empty(out_features, **factory_kwargs))
@@ -35,7 +35,7 @@ class LearnableLinearCov(nn.Module):
         # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
         # uniform(-1/sqrt(in_features), 1/sqrt(in_features)). For details, see
         # https://github.com/pytorch/pytorch/issues/57109
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        nn.init.kaiming_normal_(self.weight, a=math.sqrt(5))
         if self.bias is not None:
             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
@@ -78,11 +78,12 @@ class LearnableCovConv2d(nn.Conv2d):
         # weight shape: (out_channels, in_channels // groups, *kernel_size)
         self.weight = torch.randn(self.weight.shape, **factory_kwargs,
                                   requires_grad=False)
+        nn.init.kaiming_normal_(self.weight)
         
         self.in_features = self.in_channels // self.groups * \
             self.kernel_size[0] * self.kernel_size[1]
-        self.triu_len = torch.triu_indices(self.in_features,
-                                           self.in_features).shape[1]
+        triu_len = torch.triu_indices(self.in_features,
+                                      self.in_features).shape[1]
         self.tri_vec = Parameter(torch.zeros((triu_len,), **factory_kwargs))
         
     def forward(self, input: Tensor) -> Tensor:
