@@ -2,11 +2,12 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 import sys
-sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
+#sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
+sys.path.insert(0, '/home/mila/v/vivian.white/structured-random-features/')
 from src.models.init_weights import V1_init, classical_init, V1_weights
 import gc
-from pytorch_memlab import LineProfiler, MemReporter, profile, set_target_gpu
-set_target_gpu(1)
+#from pytorch_memlab import LineProfiler, MemReporter, profile, set_target_gpu
+#set_target_gpu(1)
 
 def train(model, model_init, penalty, device, train_loader, optimizer, epoch):
     model.train()
@@ -117,19 +118,21 @@ class BN_V1_V1_LinearLayer_CIFAR100(nn.Module):
         self.bn2 = nn.BatchNorm2d(hidden_dim)
         self.bn_h1 = nn.BatchNorm2d(hidden_dim)
         
+        self.scattering_layers = nn.ModuleList([self.v1_layer, self.v1_layer2])
+
         scale1 = 1 / (3 * 7 * 7)
         scale2 = 1 / (hidden_dim * 7 * 7)
         center = None
         
         V1_init(self.v1_layer, size, spatial_freq, center, scale1, bias, seed)
-        self.v1_layer.weight.requires_grad = False
+        #self.v1_layer.weight.requires_grad = False
         
         V1_init(self.v1_layer2, size, spatial_freq, center, scale2, bias, seed)
-        self.v1_layer2.weight.requires_grad = False
+        #self.v1_layer2.weight.requires_grad = False
         
-        if bias==True:
-            self.v1_layer.bias.requires_grad = False
-            self.v1_layer2.bias.requires_grad = False
+        #if bias==True:
+        #    self.v1_layer.bias.requires_grad = False
+        #    self.v1_layer2.bias.requires_grad = False
         
     def forward(self, x):  #[128, 3, 32, 32]
         h1 = self.relu(self.v1_layer(self.bn(x)))  
