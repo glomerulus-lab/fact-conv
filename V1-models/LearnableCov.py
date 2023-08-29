@@ -1,7 +1,8 @@
 import torch
+from torch import Tensor
 import torch.nn as nn
 from torch.nn.parameter import Parameter, UninitializedParameter
-from nn.common_types import _size_2_t
+from torch.nn.common_types import _size_2_t
 from typing import Optional, List, Tuple, Union
 
 class LearnableLinearCov(nn.Module):
@@ -64,7 +65,7 @@ class LearnableCovConv2d(nn.Conv2d):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',  # TODO: refine this type
-        device=None,
+        device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
         dtype=None
     ) -> None:
         # init as Conv2d
@@ -73,11 +74,12 @@ class LearnableCovConv2d(nn.Conv2d):
             groups, bias, padding_mode, device, dtype)
 
         factory_kwargs = {'device': device, 'dtype': dtype}
+        print("Device: ", device)
         self.factory_kwargs = factory_kwargs
 
         # weight shape: (out_channels, in_channels // groups, *kernel_size)
-        self.weight = torch.randn(self.weight.shape, **factory_kwargs,
-                                  requires_grad=False)
+        self.weight = Parameter(torch.randn(self.weight.shape, **factory_kwargs,
+                                  requires_grad=False))
         nn.init.kaiming_normal_(self.weight)
         
         self.in_features = self.in_channels // self.groups * \
@@ -94,7 +96,7 @@ class LearnableCovConv2d(nn.Conv2d):
         exp_diag = torch.exp(torch.diagonal(U))
         U[range(self.in_features), range(self.in_features)] = exp_diag
         
-        matrix_shape = (out_channels, self.in_features)
+        matrix_shape = (self.out_channels, self.in_features)
         composite_weight = torch.reshape(
             torch.reshape(self.weight, matrix_shape) @ U,
             self.weight.shape
