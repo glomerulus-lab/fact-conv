@@ -4,9 +4,6 @@ import torch.nn.functional as F
 import sys
 sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
 from src.models.init_weights import V1_init, classical_init, V1_weights
-import gc
-from pytorch_memlab import LineProfiler, MemReporter, profile, set_target_gpu
-set_target_gpu(1)
 
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -171,24 +168,6 @@ class Learned_Rand_Scat_CIFAR10(nn.Module):
             self.v1_layer.bias.requires_grad = False
             self.v1_layer2.bias.requires_grad = False
         
-# <<<<<<< HEAD
-#     def forward(self, x):  
-#         h1 = self.relu(self.v1_layer(self.bn_x(x))) 
-#         h2 = self.relu(self.v1_layer2(self.bn_h1(h1)))
-        
-#         pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=1)  
-#         x_pool = self.bn0(pool(x)) 
-#         h1_pool = self.bn1(pool(h1))  
-#         h2_pool = self.bn2(pool(h2))  
-        
-#         x_flat = x_pool.view(x_pool.size(0), -1)   #view
-#         h1_flat = h1_pool.view(h1_pool.size(0),  -1)  #view
-#         h2_flat = h2_pool.view(h2_pool.size(0), -1)  #view
-
-        
-#         concat = torch.cat((x_flat, h1_flat, h2_flat), 1) 
-        
-# =======
     def forward(self, x):
         # methods
         smooth = nn.AvgPool2d(kernel_size=5, stride=1, padding=2)
@@ -197,18 +176,14 @@ class Learned_Rand_Scat_CIFAR10(nn.Module):
 
         # do pass
         x = self.bn_x(x)
-        h1 = self.relu(self.v1_layer(x))
-        h1 = torch.cat((h1, smooth(x)), 1)
-        h1 = self.bn_h1(h1) # chan: 3 + num_filt
-        h2 = self.relu(self.v1_layer2(self.L1(h1)))
-        h2 = torch.cat((h2, smooth(h1)), 1) # chan: 3 + num_filt + dims[1]
-        h2 = self.bn_h2(h2)
+        h = torch.cat((self.relu(self.v1_layer(x)), smooth(x)), 1)
+        h = self.bn_h1(h) # chan: 3 + num_filt
+        h = torch.cat((self.relu(self.v1_layer2(self.L1(h))), smooth(h)), 1) 
+        h = self.bn_h2(h) # chan: 3 + num_filt + dims[1]
+        h = flatten(pool(h))
 
-        concat = flatten(pool(h2))
+        return self.clf(h)
 
-        beta = self.clf(concat)
-       
-        return beta
 
 
 class BN_V1_V1_LinearLayer_CIFAR100(nn.Module):
@@ -224,7 +199,6 @@ class BN_V1_V1_LinearLayer_CIFAR100(nn.Module):
         self.bn0 = nn.BatchNorm2d(3)
         self.bn1 = nn.BatchNorm2d(hidden_dim)
         self.bn2 = nn.BatchNorm2d(hidden_dim)
-        self.bn_h1 = nn.BatchNorm2d(hidden_dim)
         
         scale1 = 1 / (3 * 7 * 7)
         scale2 = 1 / (hidden_dim * 7 * 7)
@@ -242,7 +216,7 @@ class BN_V1_V1_LinearLayer_CIFAR100(nn.Module):
         
     def forward(self, x):  #[128, 3, 32, 32]
         h1 = self.relu(self.v1_layer(self.bn(x)))  
-        h2 = self.relu(self.v1_layer2(self.bn_h1(h1))) 
+        h2 = self.relu(self.v1_layer2(h1)) 
         
         pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=1)  
         x_pool = self.bn0(pool(x))  
@@ -349,51 +323,39 @@ class Scattering_V1_MNIST(nn.Module):
 
 class Scattering_V1_celeba(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
-        super().__init__()
-
-        # fixed feature layers
+        super(Scattering_V1_celeba, self).__init__()
         self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim,
                                   kernel_size=7, stride=1, padding=3, bias=bias) 
         self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim + 3, out_channels=hidden_dim,
                                    kernel_size=7, stride=1, padding=3, bias=bias)
         self.relu = nn.ReLU()
-        
-        # unsupervised layers
-        
         self.bn_x = nn.BatchNorm2d(3)
         self.bn_h1 = nn.BatchNorm2d(hidden_dim + 3)
-        self.bn_h2 = nn.BatchNorm2d(hidden_dim * 2 + 3)
-
- 
-        # supervised layers
-    
+        self.bn_h2 = nn.BatchNorm2d(2 * hidden_dim + 3)
+        
         scale1 = 1 / (3 * 7 * 7)
         scale2 = 1 / (hidden_dim * 7 * 7)
-        center = (3., 3.)
-
+        center = None
+        
         V1_init(self.v1_layer, size, spatial_freq, center, scale1, bias, seed)
         self.v1_layer.weight.requires_grad = False
-
+        
         V1_init(self.v1_layer2, size, spatial_freq, center, scale2, bias, seed)
         self.v1_layer2.weight.requires_grad = False
-
-        if bias:
+        
+        if bias==True:
             self.v1_layer.bias.requires_grad = False
             self.v1_layer2.bias.requires_grad = False
-
-    def forward(self, x):
-        # methods
-        # smooth = nn.AvgPool2d(kernel_size=5, stride=1, padding=2)
+        
+    def forward(self, x):  #[2, 3, 218, 178]
         smooth = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
         pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=1)
         flatten = nn.Flatten()
-
+        
         x = self.bn_x(x)
         h = torch.cat((self.relu(self.v1_layer(x)), smooth(x)), 1)
-        gc.collect()
         h = self.bn_h1(h)
         h = torch.cat((self.relu(self.v1_layer2(h)), smooth(h)), 1)
         h = self.bn_h2(h)
         h = flatten(pool(h))
         return h
-
