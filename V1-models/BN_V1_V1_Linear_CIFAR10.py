@@ -17,7 +17,7 @@ def save_model(args, model, loss, accuracy):
     model_dir = os.path.join(args.dir, args.name)
     if not os.path.exists(model_dir): 
         os.makedirs(model_dir)
-    os.chdir(model_dir)
+    #os.chdir(model_dir)
     
     #saves loss & accuracy in the trial directory -- all trials
     trial_dir = os.path.join(model_dir, f"trial_{args.trial}")
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     parser.add_argument('--penalty', type=float, default=0.,
                         help="regularization term")
     # TODO(kamdh): deprecate
-    parser.add_argument('--dir', typ=str,
+    parser.add_argument('--dir', type=str,
                         default="../saved-models/classification/CIFAR10",
                         help="directory to save in")
     args = parser.parse_args()
@@ -88,6 +88,7 @@ if __name__ == '__main__':
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10(
             root="/research/harris/vivian/v1-models/datasets/new_CIFAR10",
+            #root="$SLURM_TMPDIR",
             train=True,
             transform=transforms.Compose([
                 transforms.RandomHorizontalFlip(),
@@ -101,6 +102,7 @@ if __name__ == '__main__':
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10(
             root="/research/harris/vivian/v1-models/datasets/new_CIFAR10",
+            #root="$SLURM_TMPDIR",
             train=False,
             transform=transforms.Compose([
                 transforms.ToTensor(),
