@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 import sys
+import numpy as np
 #sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
 sys.path.insert(0, '/home/mila/v/vivian.white/structured-random-features/')
 from src.models.init_weights import V1_init, classical_init, V1_weights
@@ -15,16 +16,21 @@ def train(model, model_init, penalty, device, train_loader, optimizer, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.cross_entropy(output, target) + \
-            penalty * regularizer(model, model_init)
+        reg = regularizer(model, model_init)
+        loss = F.cross_entropy(output, target)
+        print("Loss term: ", loss)
+        print("Regularizing term: ", reg)
+        loss = loss + penalty * reg        
         loss.backward()
         optimizer.step()
+
 
 def regularizer(model, model_init):
     cost = 0
     for name, new_param in model.scattering_layers.state_dict().items():
         if 'weight' in name:
             init_param = model_init.scattering_layers.state_dict()[name]
+            new_param = model.scattering_layers.state_dict()[name]
             cost += torch.mean( (new_param - init_param) ** 2 )
     return cost
 
@@ -47,7 +53,6 @@ def test(model, device, test_loader, epoch):
     
     print('Test Epoch: {}\t Avg Loss: {:.4f}\t Accuracy: {:.2f}%'.format(
         epoch, test_loss, accuracy))
-
     return test_loss, accuracy
 
 class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
@@ -72,12 +77,11 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         scale1 = 1 / (3 * 7 * 7)
         scale2 = 1 / (hidden_dim * 7 * 7)
         center = (3., 3.)
-        
         V1_init(self.v1_layer, size, spatial_freq, center, scale1, bias, seed)
-        # self.v1_layer.weight.requires_grad = False
+        self.v1_layer.weight.requires_grad = True
         
         V1_init(self.v1_layer2, size, spatial_freq, center, scale2, bias, seed)
-        # self.v1_layer2.weight.requires_grad = False
+        self.v1_layer2.weight.requires_grad = True
         
         # if bias==True:
         #     self.v1_layer.bias.requires_grad = False
