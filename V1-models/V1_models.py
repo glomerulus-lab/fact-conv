@@ -18,8 +18,7 @@ def train(model, model_init, penalty, device, train_loader, optimizer, epoch):
         output = model(data)
         reg = regularizer(model, model_init)
         loss = F.cross_entropy(output, target)
-        print("Loss term: ", loss)
-        print("Regularizing term: ", reg)
+        print(f"{batch_idx}: loss {loss}, regularization {reg}, penalty {penalty}")
         cost = loss + penalty * reg        
         cost.backward()
         optimizer.step()
