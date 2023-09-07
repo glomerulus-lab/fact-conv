@@ -3,8 +3,8 @@ import torch
 import torch.nn.functional as F
 import sys
 import numpy as np
-#sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
-sys.path.insert(0, '/home/mila/v/vivian.white/structured-random-features/')
+sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
+#sys.path.insert(0, '/home/mila/v/vivian.white/structured-random-features/')
 from src.models.init_weights import V1_init, classical_init, V1_weights
 import gc
 #from pytorch_memlab import LineProfiler, MemReporter, profile, set_target_gpu
@@ -12,16 +12,32 @@ import gc
 
 def train(model, model_init, penalty, device, train_loader, optimizer, epoch):
     model.train()
+    avg_cost = 0.
+    avg_loss = 0.
+    avg_reg = 0.
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
         reg = regularizer(model, model_init)
         loss = F.cross_entropy(output, target)
-        print(f"{batch_idx}: loss {loss}, regularization {reg}, penalty {penalty}")
-        cost = loss + penalty * reg        
+        cost = loss + penalty * reg
+        # print(f"{batch_idx}: " \
+        #       f"cost {cost:.3e} = " \
+        #       f"loss {loss:.3e} + " \
+        #       f"regularization {reg:.3e} * penalty {penalty:.1e}")
+        avg_cost += float(cost)
+        avg_loss += float(loss)
+        avg_reg += float(reg)
         cost.backward()
         optimizer.step()
+
+    avg_cost /= len(train_loader)
+    avg_loss /= len(train_loader)
+    avg_reg /= len(train_loader)
+    print(f"cost {avg_cost:.3e} = " \
+          f"loss {avg_loss:.3e} + " \
+          f"regularization {avg_reg:.3e} * penalty {penalty:.1e}")
 
 
 def regularizer(model, model_init):
@@ -30,7 +46,7 @@ def regularizer(model, model_init):
         if 'weight' in name:
             init_param = model_init.scattering_layers.state_dict()[name]
             new_param = model.scattering_layers.state_dict()[name]
-            print(new_param)
+            # print(type(new_param))
             cost += torch.mean( (new_param - init_param) ** 2 )
     return cost
 
