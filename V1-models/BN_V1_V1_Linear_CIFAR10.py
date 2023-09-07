@@ -69,6 +69,7 @@ if __name__ == '__main__':
 
     model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(
         args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    # create copy of model object by initializing and loading state
     model_init = V1_models.BN_V1_V1_LinearLayer_CIFAR10(
         args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
     model_init.load_state_dict(model.state_dict())

@@ -30,6 +30,7 @@ def regularizer(model, model_init):
         if 'weight' in name:
             init_param = model_init.scattering_layers.state_dict()[name]
             new_param = model.scattering_layers.state_dict()[name]
+            print(new_param)
             cost += torch.mean( (new_param - init_param) ** 2 )
     return cost
 
