@@ -145,8 +145,6 @@ class LearnableCovFactoredConv2d(nn.Conv2d):
         U1 = self._tri_vec_to_mat(self.tri1_vec, self.in_channels // self.groups)
         U2 = self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1])
         U = torch.kron(U1, U2)
-        exp_diag = torch.exp(torch.diagonal(U))
-        U[range(self.in_features), range(self.in_features)] = exp_diag
         
         matrix_shape = (self.out_channels, self.in_features)
         composite_weight = torch.reshape(
@@ -159,4 +157,6 @@ class LearnableCovFactoredConv2d(nn.Conv2d):
     def _tri_vec_to_mat(self, vec, n):
         U = torch.zeros((n, n), **self.factory_kwargs)
         U[torch.triu_indices(n, n).tolist()] = vec
+        exp_diag = torch.exp(torch.diagonal(U))
+        U[range(n), range(n)] = exp_diag
         return U
