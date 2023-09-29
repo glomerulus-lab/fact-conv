@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-from LearnableCov import LearnableCovConv2d
+from LearnableCov import LearnableCovConv2d, LearnableCovFactoredConv2d
 
 
 class BN_V1_V1_Linear_MNIST(nn.Module):
