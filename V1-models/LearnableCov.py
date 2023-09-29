@@ -156,7 +156,7 @@ class LearnableCovFactoredConv2d(nn.Conv2d):
         
         return self._conv_forward(input, composite_weight, self.bias)
 
-    def _tri_vec_to_mat(vec, n):
+    def _tri_vec_to_mat(self, vec, n):
         U = torch.zeros((n, n), **self.factory_kwargs)
         U[torch.triu_indices(n, n).tolist()] = vec
         return U
