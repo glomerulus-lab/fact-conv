@@ -28,9 +28,9 @@ class BN_V1_V1_Linear_MNIST(nn.Module):
         scale2 = 1 / (hidden_dim * 7 * 7)
         center = None
         
-        if bias==True:
-            self.lc_layer.bias.requires_grad = False
-            self.lc_layer2.bias.requires_grad = False
+        # if bias==True:
+        #     self.lc_layer.bias.requires_grad = False
+        #     self.lc_layer2.bias.requires_grad = False
         
     def forward(self, x):  #[128, 1, 28, 28]
         h1 = self.relu(self.lc_layer(self.bn(x)))  
