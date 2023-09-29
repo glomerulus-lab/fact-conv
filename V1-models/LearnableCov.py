@@ -142,8 +142,8 @@ class LearnableCovFactoredConv2d(nn.Conv2d):
         self.tri2_vec = Parameter(torch.zeros((triu2_len,), **factory_kwargs))
         
     def forward(self, input: Tensor) -> Tensor:
-        U1 = _tri_vec_to_mat(self.tri1_vec, self.in_channels // self.groups)
-        U2 = _tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1])
+        U1 = self._tri_vec_to_mat(self.tri1_vec, self.in_channels // self.groups)
+        U2 = self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1])
         U = torch.kron(U1, U2)
         exp_diag = torch.exp(torch.diagonal(U))
         U[range(self.in_features), range(self.in_features)] = exp_diag
