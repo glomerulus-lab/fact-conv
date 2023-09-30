@@ -5,7 +5,7 @@ from torch.nn.parameter import Parameter, UninitializedParameter
 from torch.nn.common_types import _size_2_t
 from typing import Optional, List, Tuple, Union
 
-class LearnableLinearCov(nn.Module):
+class Linear(nn.Module):
     in_features: int
     out_features: int
     weight: torch.Tensor
@@ -53,7 +53,7 @@ class LearnableLinearCov(nn.Module):
         
         return F.linear(input, composite_weight, self.bias)
 
-class LearnableCovConv2d(nn.Conv2d):
+class Conv2d(nn.Conv2d):
     def __init__(
         self,
         in_channels: int,
@@ -104,7 +104,7 @@ class LearnableCovConv2d(nn.Conv2d):
         
         return self._conv_forward(input, composite_weight, self.bias)
 
-class LearnableCovFactoredConv2d(nn.Conv2d):
+class FactConv2d(nn.Conv2d):
     def __init__(
         self,
         in_channels: int,

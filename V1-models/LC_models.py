@@ -1,18 +1,18 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-from LearnableCov import LearnableCovConv2d, LearnableCovFactoredConv2d
+import LearnableCov
 
 
 class BN_V1_V1_Linear_MNIST(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
         super(BN_V1_V1_Linear_MNIST, self).__init__()
         self.lc_layer = \
-            LearnableCovFactoredConv2d(in_channels=1, out_channels=hidden_dim,
+            LearnableCov.FactConv2d(in_channels=1, out_channels=hidden_dim,
                                        kernel_size=7, stride=1, padding=3, 
                                        bias=bias) 
         self.lc_layer2 = \
-            LearnableCovFactoredConv2d(in_channels=hidden_dim,
+            LearnableCov.FactConv2d(in_channels=hidden_dim,
                                        out_channels=hidden_dim, kernel_size=7,
                                        stride=1, padding=3, 
                                        bias=bias)
@@ -53,9 +53,9 @@ class BN_V1_V1_Linear_MNIST(nn.Module):
 class SimpleLearnableNetwork(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
         super(SimpleLearnableNetwork, self).__init__()
-        self.layer = LearnableCovConv2d(in_channels=1, out_channels=hidden_dim,
+        self.layer = LearnableCov.Conv2d(in_channels=1, out_channels=hidden_dim,
                 kernel_size=7, stride=1, padding=3, bias=bias)
-        self.layer2 = LearnableCovConv2d(in_channels=hidden_dim,
+        self.layer2 = LearnableCov.Conv2d(in_channels=hidden_dim,
                 out_channels=hidden_dim, kernel_size=7, stride=1, padding=3,
                 bias=bias)
         self.relu = nn.ReLU()
