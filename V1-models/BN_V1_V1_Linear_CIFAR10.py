@@ -51,8 +51,8 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
-    #model = V1_models.Learned_Rand_Scat_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    #model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    model = V1_models.Learned_Rand_Scat_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
 
     # DataLoaders
     if use_cuda:

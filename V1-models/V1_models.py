@@ -171,7 +171,7 @@ class Learned_Rand_Scat_CIFAR10(nn.Module):
             self.v1_layer.bias.requires_grad = False
             self.v1_layer2.bias.requires_grad = False
         
-# <<<<<<< HEAD
+# OLD 
 #     def forward(self, x):  
 #         h1 = self.relu(self.v1_layer(self.bn_x(x))) 
 #         h2 = self.relu(self.v1_layer2(self.bn_h1(h1)))
@@ -187,8 +187,7 @@ class Learned_Rand_Scat_CIFAR10(nn.Module):
 
         
 #         concat = torch.cat((x_flat, h1_flat, h2_flat), 1) 
-        
-# =======
+
     def forward(self, x):
         # methods
         smooth = nn.AvgPool2d(kernel_size=5, stride=1, padding=2)

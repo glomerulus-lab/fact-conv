@@ -157,6 +157,11 @@ class LearnableCovFactoredConv2d(nn.Conv2d):
     def _tri_vec_to_mat(self, vec, n):
         U = torch.zeros((n, n), **self.factory_kwargs)
         U[torch.triu_indices(n, n).tolist()] = vec
-        exp_diag = torch.exp(torch.diagonal(U))
-        U[range(n), range(n)] = exp_diag
+        U = _exp_diag(U)
         return U
+
+    def _exp_diag(self, mat):
+        exp_diag = torch.exp(torch.diagonal(mat))
+        n = mat.shape[0]
+        mat[range(n), range(n)] = exp_diag
+        return mat
