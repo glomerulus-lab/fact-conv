@@ -60,7 +60,8 @@ if __name__ == '__main__':
     device = torch.device("cuda:" + str(args.device) if use_cuda else "cpu")
     
     start = datetime.now()
-    model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    model = V1_models.Learned_Rand_Scat_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    #model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
     # DataLoaders
     if use_cuda:
         num_workers = 4
