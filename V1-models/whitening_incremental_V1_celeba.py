@@ -67,7 +67,7 @@ if __name__ == '__main__':
     test_dataset = datasets.CelebA(root=root, split="test", download=False, transform=transforms_to_apply)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, drop_last=True)
 
-    scattering = V1_models_kam.Scattering_V1_celeba(num_input_channels, 2, 0.1, 1, True).to(device)
+    scattering = V1_models.Scattering_V1_celeba(num_input_channels, 2, 0.1, 1, True).to(device)
     scattering.requires_grad = False
     
     class Whitener(nn.Module):
@@ -82,10 +82,10 @@ if __name__ == '__main__':
             z = self.ll(xbar)
             return z
 
-    opt = optim.Adam(generator.parameters(), lr=0.01) 
+    whitener = Whitener(z_dim, 69).to(device)
+    opt = optim.Adam(whitener.parameters(), lr=0.01) 
 
     #whitener = IncrementalPCA(n_components=z_dim, whiten=True)
-    whitener = Whitener(z_dim, input_dim).to(device)
     
     for idx_epoch in range(whiten_epochs): 
          print('Whitening training epoch {}'.format(idx_epoch))
