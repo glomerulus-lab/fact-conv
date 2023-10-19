@@ -69,18 +69,43 @@ if __name__ == '__main__':
 
     scattering = V1_models_kam.Scattering_V1_celeba(num_input_channels, 2, 0.1, 1, True).to(device)
     scattering.requires_grad = False
-    whitener = IncrementalPCA(n_components=z_dim, whiten=True)
+    
+    class Whitener(nn.Module):
+        def __init__(self, z_dim, input_dim):
+            super(Whitener, self).__init__()
+            mean = torch.zeros(input_dim) 
+            self.mean = nn.Parameter(mean)
+            self.ll = nn.Linear(input_dim, z_dim, bias=False)
+
+        def forward(self, x):
+            xbar = x - self.mean
+            z = self.ll(xbar)
+            return z
+
+    opt = optim.Adam(generator.parameters(), lr=0.01) 
+
+    #whitener = IncrementalPCA(n_components=z_dim, whiten=True)
+    whitener = Whitener(z_dim, input_dim).to(device)
     
     for idx_epoch in range(whiten_epochs): 
          print('Whitening training epoch {}'.format(idx_epoch))
          for idx, batch in enumerate(train_dataloader): #469 batches
              print('batch {}'.format(idx))
-             with torch.no_grad():
-                 images = batch[0].float().to(device)
-                 batch_scatter = scattering(images).detach()
-                 batch_scatter = batch_scatter.view(images.size(0), -1).numpy(force=True)
-             whitener.partial_fit(batch_scatter)
-             del batch_scatter, images
+             whitener.zero_grad()
+        
+             images = batch[0].float().to(device)
+             batch_scatter = scattering(images)
+             batch_scatter = batch_scatter.view(images.size(0), -1)
+             whitened = whitener(batch_scatter)
+             mean_cost = torch.norm(whitener.mean - torch.mean(batch_scatter,\
+                                                          axis=0)) ** 2
+             linear_cost = torch.norm(torch.eye(input_dim)\
+                                      - torch.mm(whitened.T, whitened)\
+                                                   / batch_size) ** 2
+             cost = mean_cost + linear_cost
+             cost.backward()
+             opt.step()
+            
              
     print("Done whitening")
     
