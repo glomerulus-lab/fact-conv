@@ -22,7 +22,7 @@ import torch.nn.functional as F
 from pytorch_memlab import MemReporter
 import generator_utils
 
-device = "cuda:1" if torch.cuda.is_available() else "cpu"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 if __name__ == '__main__':
 
@@ -82,14 +82,17 @@ if __name__ == '__main__':
             z = self.ll(xbar)
             return z
 
-    whitener = Whitener(z_dim, 69).to(device)
-    opt = optim.Adam(whitener.parameters(), lr=0.01) 
-
+    input_dim = 265216
+    whitener = Whitener(z_dim, input_dim).to(device)
+    opt = optim.Adam(whitener.parameters(), lr=0.00001) 
+    cost_list = []
+    mean_list = []
+    linear_list = []
     #whitener = IncrementalPCA(n_components=z_dim, whiten=True)
     
     for idx_epoch in range(whiten_epochs): 
          print('Whitening training epoch {}'.format(idx_epoch))
-         for idx, batch in enumerate(train_dataloader): #469 batches
+         for idx, batch in enumerate(whiten_dataloader): #469 batches
              print('batch {}'.format(idx))
              whitener.zero_grad()
         
@@ -99,16 +102,26 @@ if __name__ == '__main__':
              whitened = whitener(batch_scatter)
              mean_cost = torch.norm(whitener.mean - torch.mean(batch_scatter,\
                                                           axis=0)) ** 2
-             linear_cost = torch.norm(torch.eye(input_dim)\
+             linear_cost = torch.norm(torch.eye(whitened.shape[1],\
+                                        whitened.shape[1]).to(device)\
                                       - torch.mm(whitened.T, whitened)\
                                                    / batch_size) ** 2
              cost = mean_cost + linear_cost
+             cost_list.append(cost)
+             mean_list.append(mean_cost)
+             linear_list.append(linear_cost)
+             print("whitening cost: ", cost)
              cost.backward()
              opt.step()
             
              
     print("Done whitening")
-    
+    torch.save(torch.Tensor(cost_list), os.path.join(dir_to_save,\
+            'whitening_cost.pt')) 
+    torch.save(torch.Tensor(linear_list), os.path.join(dir_to_save,\
+            'linear_cost.pt'))
+    torch.save(torch.Tensor(mean_list), os.path.join(dir_to_save,\
+            'mean_cost.pt'))
     generator = generator_utils.GSN(nb_channels_input=num_input_channels, z_dim=z_dim).to(device)    
     generator.train()
     
