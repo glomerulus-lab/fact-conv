@@ -75,10 +75,10 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         scale2 = 1 / (hidden_dim * 7 * 7)
         center = (3., 3.,)
 
-        V1_init(self.lc_layer, size, spatial_freq, center, scale1, bias, seed)
+        LearnableCov.V1_init(self.lc_layer, size, spatial_freq, center, scale1, bias, seed)
         self.lc_layer.triu2_vec.requires_grad=False
 
-        V1_init(self.lc_layer2, size, spatial_freq, center, scale1, bias, seed)
+        LearnableCov.V1_init(self.lc_layer2, size, spatial_freq, center, scale1, bias, seed)
         self.lc_layer2.triu2_vec.requires_grad=False
 
 
