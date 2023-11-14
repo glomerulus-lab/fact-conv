@@ -8,8 +8,8 @@ from datetime import datetime
 import os
 from distutils.util import strtobool
 import argparse
-import V1_models
-#import LC_models
+#import V1_models
+import LC_models
 
     
 def save_model(args, model, loss, accuracy):
