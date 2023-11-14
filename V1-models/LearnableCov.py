@@ -166,3 +166,28 @@ class FactConv2d(nn.Conv2d):
         n = mat.shape[0]
         mat[range(n), range(n)] = exp_diag
         return mat
+
+def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
+            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
+    '''
+    Initialization for FactConv2d
+    '''
+    sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
+    from src.models.weights import V1_covariance_matrix
+    
+    classname = layer.__class__.__name__
+    assert classname.find('FactConv2d') != -1, 'This init only works for FactConv2d layers'
+    assert center is not None, "center needed"
+
+    out_channels, in_channels, xdim, ydim = layer.weight.shape
+    dim = (xdim, ydim)
+    
+    C_patch = Tensor(V1_covariance_matrix(dim, size, spatial_freq, center, scale)).to(device)
+    U_patch = torch.linalg.cholesky(C_patch, upper=True)
+    n = U_patch.shape[0]
+    tri_vec = U_patch[torch.triu_indices(n, n, **self.factory_kwargs).tolist()].ravel()
+    with torch.no_grad():
+        layer.tri2_vec.copy_(tri_vec)
+
+    if bias == False:
+        layer.bias = None

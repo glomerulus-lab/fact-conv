@@ -75,6 +75,52 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         scale2 = 1 / (hidden_dim * 7 * 7)
         center = (3., 3.,)
 
+        V1_init(self.lc_layer, size, spatial_freq, center, scale1, bias, seed)
+        self.lc_layer.triu2_vec.requires_grad=False
+
+        V1_init(self.lc_layer2, size, spatial_freq, center, scale1, bias, seed)
+        self.lc_layer2.triu2_vec.requires_grad=False
+
+
+    def forward(self, x):
+        # methods
+        smooth = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
+        pool = nn.AvgPool2d(kernel_size=4, stride=4, padding=1)
+        flatten = nn.Flatten()
+
+        x = self.bn_x(x)
+        h = torch.cat((self.relu(self.lc_layer(x)), smooth(x)), 1)
+        h = self.bn_h1(h) 
+        h = torch.cat((self.relu(self.lc_layer2(h)), smooth(h)), 1)
+        h = self.bn_h2(h)
+        h = flatten(pool(h))
+        return self.clf(h)
+
+class Factorized_V1_CIFAR10(nn.Module):
+    def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
+        super(BN_V1_V1_LinearLayer_CIFAR10, self).__init__()
+        self.lc_layer = \
+                LearnableCov.FactConv2d(in_channels=3, out_channels=hidden_dim,
+                        kernel_size=7, stride=1, padding=3, bias=bias)
+        self.lc_layer2 = \
+                LearnableCov.FactConv2d(in_channels=hidden_dim + 3,
+                        out_channels=hidden_dim, kernel_size=7,
+                        stride=1, padding=3, bias=bias)
+        self.relu = nn.ReLU()
+
+        # unsupervised layers
+        self.bn_x = nn.BatchNorm2d(3)
+        self.bn_h1 = nn.BatchNorm2d(hidden_dim + 3)
+        self.bn_h2 = nn.BatchNorm2d(hidden_dim * 2 + 3)
+
+        # supervised layers
+        self.clf = nn.Linear((3 * (8 ** 2)) + (hidden_dim * (8 ** 2))\
+                + (hidden_dim * (8 ** 2)), 10)
+
+        scale1 = 1 / (3 * 7 * 7)
+        scale2 = 1 / (hidden_dim * 7 * 7)
+        center = (3., 3.,)
+
     def forward(self, x):
         # methods
         smooth = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
