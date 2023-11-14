@@ -186,7 +186,7 @@ def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
     C_patch = Tensor(V1_covariance_matrix(dim, size, spatial_freq, center, scale)).to(device)
     U_patch = torch.linalg.cholesky(C_patch, upper=True)
     n = U_patch.shape[0]
-    tri_vec = U_patch[torch.triu_indices(n, n, **self.factory_kwargs).tolist()].ravel()
+    tri_vec = U_patch[torch.triu_indices(n, n, device=device).tolist()].ravel()
     with torch.no_grad():
         layer.tri2_vec.copy_(tri_vec)
 
