@@ -172,6 +172,7 @@ def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
     '''
     Initialization for FactConv2d
     '''
+    import sys
     sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
     from src.models.weights import V1_covariance_matrix
     
