@@ -5,8 +5,7 @@ import sys
 sys.path.insert(0, '/research/harris/vivian/structured_random_features/')
 from src.models.init_weights import V1_init, classical_init, V1_weights
 import gc
-from pytorch_memlab import LineProfiler, MemReporter, profile, set_target_gpu
-set_target_gpu(1)
+import LearnableCov
 
 def train(model, device, train_loader, optimizer, epoch):
     model.train()
@@ -39,7 +38,7 @@ def test(model, device, test_loader, epoch):
 
     return test_loss, accuracy
 
-class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
+class V1_CIFAR10(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
         super().__init__()
 
@@ -86,19 +85,8 @@ class BN_V1_V1_LinearLayer_CIFAR10(nn.Module):
         h = self.bn_h2(h)
         h = flatten(pool(h))
         return self.clf(h)
+ 
         
-        #h1 = self.relu(self.v1_layer(x))
-        #h1 = torch.cat((h1, smooth(x)), 1)
-        #h1 = self.bn_h1(h1)
-        #h2 = self.relu(self.v1_layer2(h1))
-        #h2 = torch.cat((h2, smooth(h1)), 1)
-        #h2 = self.bn_h2(h2)
-        #concat = flatten(pool(h2))
-        
-        #beta = self.clf(concat)
-       
-        #return beta
-
 class Rand_Scat_Block(nn.Module):
     def __init__(self, in_chan, num_filt, size, spatial_freq,
                  kernel_size=7, stride=1, padding=3, scale=None, bias=True, seed=None):
@@ -210,9 +198,9 @@ class Learned_Rand_Scat_CIFAR10(nn.Module):
         return beta
 
 
-class BN_V1_V1_LinearLayer_CIFAR100(nn.Module):
+class V1_CIFAR100(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
-        super(BN_V1_V1_LinearLayer_CIFAR100, self).__init__()
+        super(V1_CIFAR100, self).__init__()
         self.v1_layer = nn.Conv2d(in_channels=3, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
                                   bias=bias) 
         self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
@@ -257,9 +245,9 @@ class BN_V1_V1_LinearLayer_CIFAR100(nn.Module):
         beta = self.clf(concat) 
         return beta
     
-class BN_V1_V1_LinearLayer_MNIST(nn.Module):
+class V1_MNIST(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
-        super(BN_V1_V1_LinearLayer_MNIST, self).__init__()
+        super(V1_MNIST, self).__init__()
         self.v1_layer = nn.Conv2d(in_channels=1, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
                                   bias=bias) 
         self.v1_layer2 = nn.Conv2d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=7, stride=1, padding=3, 
@@ -389,7 +377,6 @@ class Scattering_V1_celeba(nn.Module):
 
         x = self.bn_x(x)
         h = torch.cat((self.relu(self.v1_layer(x)), smooth(x)), 1)
-        gc.collect()
         h = self.bn_h1(h)
         h = torch.cat((self.relu(self.v1_layer2(h)), smooth(h)), 1)
         h = self.bn_h2(h)
