@@ -34,16 +34,25 @@ def save_model(args, model, loss, accuracy):
 if __name__ == '__main__':
   
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hidden_dim', type=int, default=100, help='number of hidden dimensions in model')
+    parser.add_argument('--hidden_dim', type=int, default=100, 
+                        help='number of hidden dimensions in model')
     parser.add_argument('--num_epoch', type=int, default=90, help='number of epochs')
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('--s', type=int, default=2, help='V1 size')
     parser.add_argument('--f', type=float, default=0.1, help='V1 spatial frequency')
     parser.add_argument('--scale', type=int, default=1, help='V1 scale')
-    parser.add_argument('--name', type=str, default='BN_V1_V1_Linear', help='filename for saved model')
+    parser.add_argument('--name', type=str, default='BN_V1_V1_Linear', 
+                        help='filename for saved model')
     parser.add_argument('--trial', type=int, default=1, help='trial number')
-    parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), default=False, help='bias=True or False')
+    parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), 
+                        default=False, help='bias=True or False')
     parser.add_argument('--device', type=int, default=0, help="which device to use (0 or 1)")
+    parser.add_argument('--freeze_spatial', type=bool, default=True, 
+                        help="freeze spatial filters for LearnableCov models")
+    parser.add_argument('--freeze_channel', type=bool, default=False, 
+                        help="freeze channels for LearnableCov models")
+    parser.add_argument('--spatial_init', type=str, default='V1', choices=['default', 'V1'], 
+                        help="initialization for spatial filters for LearnableCov models")
     args = parser.parse_args()
     initial_lr = args.lr
 
@@ -52,7 +61,7 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    model = LC_models.V1_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias, args.V1_or_LC, args.learnable).to(device)
+    model = LC_models.V1_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias, args.freeze_spatial, args.freeze_channel, args.spatial_init).to(device)
     print("Num params total: ", sum(p.numel() for p in model.parameters()))
     print("Num params grad: ", sum(p.numel() for p in model.parameters() if p.requires_grad))
 

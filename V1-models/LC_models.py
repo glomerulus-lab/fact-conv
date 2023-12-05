@@ -6,7 +6,7 @@ import LearnableCov
 
 class V1_MNIST(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
-        super(BN_V1_V1_Linear_MNIST, self).__init__()
+        super(V1_MNIST, self).__init__()
         self.lc_layer = \
             LearnableCov.FactConv2d(in_channels=1, out_channels=hidden_dim,
                                        kernel_size=7, stride=1, padding=3, 
@@ -51,8 +51,8 @@ class V1_MNIST(nn.Module):
         return beta
 
 class V1_CIFAR10(nn.Module):
-    def __init__(self, hidden_dim, size, spatial_freq, scale, bias,\
-            init_spatial, seed=None):
+    def __init__(self, hidden_dim, size, spatial_freq, scale, bias,
+            freeze_spatial, freeze_channel, spatial_init, seed=None):
         super().__init__()
         self.lc_layer = \
                 LearnableCov.FactConv2d(in_channels=3, out_channels=hidden_dim,
@@ -76,12 +76,18 @@ class V1_CIFAR10(nn.Module):
         scale2 = 1 / (hidden_dim * 7 * 7)
         center = (3., 3.,)
 
-        # LearnableCov.V1_init(self.lc_layer, size, spatial_freq, center, scale1, bias, seed)
-        self.lc_layer.tri2_vec.requires_grad=False
+        if spatial_init == 'V1':
+            LearnableCov.V1_init(self.lc_layer, size, spatial_freq, center, scale1, bias, seed)
+            LearnableCov.V1_init(self.lc_layer2, size, spatial_freq, center, scale2, bias, seed)
 
-        # LearnableCov.V1_init(self.lc_layer2, size, spatial_freq, center, scale2, bias, seed)
-        self.lc_layer2.tri2_vec.requires_grad=False
+        if freeze_spatial == True:
+            self.lc_layer.tri2_vec.requires_grad=False
+            self.lc_layer2.tri2_vec.requires_grad=False
 
+        if freeze_channel == True:
+            self.lc_layer.tri1_vec.requires_grad=False
+            self.lc_layer2.tri1_vec.requires_grad=False
+    
     def forward(self, x):
         # methods
         smooth = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
