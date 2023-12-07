@@ -83,14 +83,14 @@ class V1_CIFAR10(nn.Module):
         else:
             print("Default spatial init")
         
-        if freeze_spatial == 'True':
+        if freeze_spatial == True:
             self.lc_layer.tri2_vec.requires_grad=False
             self.lc_layer2.tri2_vec.requires_grad=False
             print("Freeze spatial vec")
         else:
             print("Learnable spatial vec")
 
-        if freeze_channel == 'True':
+        if freeze_channel == True:
             self.lc_layer.tri1_vec.requires_grad=False
             self.lc_layer2.tri1_vec.requires_grad=False
             print("Freeze channel vec")

@@ -47,10 +47,12 @@ if __name__ == '__main__':
     parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), 
                         default=False, help='bias=True or False')
     parser.add_argument('--device', type=int, default=0, help="which device to use (0 or 1)")
-    parser.add_argument('--freeze_spatial', type=str, default='False', 
-                        choices=['True', 'False'], help="freeze spatial filters for LearnableCov models")
-    parser.add_argument('--freeze_channel', type=str, default='False', 
-                        choices=['True', 'False'], help="freeze channels for LearnableCov models")
+    parser.add_argument('--freeze_spatial', dest='freeze_spatial', 
+                        type=lambda x: bool(strtobool(x)), default=True, 
+                        help="freeze spatial filters for LearnableCov models")
+    parser.add_argument('--freeze_channel', dest='freeze_channel', 
+                        type=lambda x: bool(strtobool(x)), default=False,
+                        help="freeze channels for LearnableCov models")
     parser.add_argument('--spatial_init', type=str, default='V1', choices=['default', 'V1'], 
                         help="initialization for spatial filters for LearnableCov models")
     args = parser.parse_args()
