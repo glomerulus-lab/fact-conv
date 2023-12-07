@@ -64,7 +64,7 @@ if __name__ == '__main__':
     model = LC_models.V1_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias, args.freeze_spatial, args.freeze_channel, args.spatial_init).to(device)
     print("Num params total: ", sum(p.numel() for p in model.parameters()))
     print("Num params grad: ", sum(p.numel() for p in model.parameters() if p.requires_grad))
-
+    
     # DataLoaders
     if use_cuda:
         num_workers = 4

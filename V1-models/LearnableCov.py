@@ -76,10 +76,11 @@ class Conv2d(nn.Conv2d):
         factory_kwargs = {'device': device, 'dtype': dtype}
         print("Device: ", device)
         self.factory_kwargs = factory_kwargs
-
+        
         # weight shape: (out_channels, in_channels // groups, *kernel_size)
-        self.weight = Parameter(torch.randn(self.weight.shape, **factory_kwargs,
-                                  requires_grad=False))
+        weight_shape = self.weight.shape
+        del self.weight # remove Parameter, create buffer
+        self.register_buffer("weight", torch.empty(weight_shape, **factory_kwargs))
         nn.init.kaiming_normal_(self.weight)
         
         self.in_features = self.in_channels // self.groups * \
@@ -128,8 +129,9 @@ class FactConv2d(nn.Conv2d):
         self.factory_kwargs = factory_kwargs
 
         # weight shape: (out_channels, in_channels // groups, *kernel_size)
-        self.weight = Parameter(torch.randn(self.weight.shape, **factory_kwargs,
-                                  requires_grad=False))
+        weight_shape = self.weight.shape
+        del self.weight # remove Parameter, create buffer
+        self.register_buffer("weight", torch.empty(weight_shape, **factory_kwargs))
         nn.init.kaiming_normal_(self.weight)
         
         self.in_features = self.in_channels // self.groups * \
@@ -158,6 +160,7 @@ class FactConv2d(nn.Conv2d):
     def _tri_vec_to_mat(self, vec, n):
         U = torch.zeros((n, n), **self.factory_kwargs)
         U[torch.triu_indices(n, n, **self.factory_kwargs).tolist()] = vec
+        # TODO(kamdh): experiment with this placement versus after kron
         # U = self._exp_diag(U)
         return U
 
@@ -186,6 +189,10 @@ def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
     C_patch = Tensor(V1_covariance_matrix(dim, size, spatial_freq, center, scale)).to(device)
     U_patch = torch.linalg.cholesky(C_patch, upper=True)
     n = U_patch.shape[0]
+    # replace diagonal with logarithm for parameterization
+    log_diag = torch.log(torch.diagonal(U_patch))
+    U_patch[range(n), range(n)] = log_diag
+    # form vector of upper triangular entries
     tri_vec = U_patch[torch.triu_indices(n, n, device=device).tolist()].ravel()
     with torch.no_grad():
         layer.tri2_vec.copy_(tri_vec)
