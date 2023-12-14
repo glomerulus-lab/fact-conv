@@ -151,7 +151,8 @@ class Factorized_V1_CIFAR10(nn.Module):
         return self.clf(h)
 
 class V1_CIFAR100(nn.Module):
-    def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
+    def __init__(self, hidden_dim, size, spatial_freq, scale, bias,
+            freeze_spatial, freeze_channel, spatial_init, seed=None):
         super(V1_CIFAR100, self).__init__()
         self.lc_layer = \
                 LearnableCov.FactConv2d(in_channels=3, out_channels=hidden_dim,
@@ -176,12 +177,26 @@ class V1_CIFAR100(nn.Module):
         center = (3., 3.,)
         #center = None
 
-        LearnableCov.V1_init(self.lc_layer, size, spatial_freq, center, scale1, bias, seed)
-        self.lc_layer.tri2_vec.requires_grad=False
-
-        LearnableCov.V1_init(self.lc_layer2, size, spatial_freq, center, scale1, bias, seed)
-        self.lc_layer2.tri2_vec.requires_grad=False
+        if spatial_init == 'V1':
+            LearnableCov.V1_init(self.lc_layer, size, spatial_freq, center, scale1, bias, seed)
+            LearnableCov.V1_init(self.lc_layer2, size, spatial_freq, center, scale2, bias, seed)
+            print("V1 spatial init")
+        else:
+            print("Default spatial init")
         
+        if freeze_spatial == True:
+            self.lc_layer.tri2_vec.requires_grad=False
+            self.lc_layer2.tri2_vec.requires_grad=False
+            print("Freeze spatial vec")
+        else:
+            print("Learnable spatial vec")
+
+        if freeze_channel == True:
+            self.lc_layer.tri1_vec.requires_grad=False
+            self.lc_layer2.tri1_vec.requires_grad=False
+            print("Freeze channel vec")
+        else:
+            print("Learnable channel vec")
 
     def forward(self, x):
         # methods

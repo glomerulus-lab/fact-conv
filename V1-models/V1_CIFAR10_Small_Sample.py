@@ -54,6 +54,15 @@ if __name__ == '__main__':
                         default=False, help='bias=True or False')
     parser.add_argument('--device', type=int, default=0, 
                         help="which device to use (0 or 1)")
+
+    parser.add_argument('--freeze_spatial', dest='freeze_spatial', 
+                        type=lambda x: bool(strtobool(x)), default=True, 
+                        help="freeze spatial filters for LearnableCov models")
+    parser.add_argument('--freeze_channel', dest='freeze_channel', 
+                        type=lambda x: bool(strtobool(x)), default=False,
+                        help="freeze channels for LearnableCov models")
+    parser.add_argument('--spatial_init', type=str, default='V1', choices=['default', 'V1'], 
+                        help="initialization for spatial filters for LearnableCov models")
     args = parser.parse_args()
     initial_lr = args.lr
 
@@ -63,7 +72,8 @@ if __name__ == '__main__':
     start = datetime.now()
     #model = V1_models.Learned_Rand_Scat_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
     #model = V1_models.BN_V1_V1_LinearLayer_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
-    model = LC_models.V1_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    model = LC_models.V1_CIFAR10(args.hidden_dim, args.s, args.f, args.scale,
+            args.bias, args.freeze_spatial, args.freeze_channel, args.spatial_init).to(device)
 
     # DataLoaders
     if use_cuda:
@@ -78,7 +88,9 @@ if __name__ == '__main__':
 
 
     #####cifar data
-    cifar_data = datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=True, transform=transforms.Compose([
+    cifar_data = datasets.CIFAR10(
+            root=scattering_datasets.get_dataset_dir('CIFAR'), 
+            train=True, transform=transforms.Compose([
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
@@ -95,7 +107,9 @@ if __name__ == '__main__':
                                                pin_memory=pin_memory)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR10(root=scattering_datasets.get_dataset_dir('CIFAR'), train=False, transform=transforms.Compose([
+        datasets.CIFAR10(
+            root=scattering_datasets.get_dataset_dir('CIFAR'), 
+            train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
         ])),
