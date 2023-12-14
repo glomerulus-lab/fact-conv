@@ -1,0 +1,177 @@
+V1 spatial init
+Learnable spatial vec
+Learnable channel vec
+Replacenet_V1_CIFAR10(
+  (resnet): ResNet(
+    (conv1): FactConv2dPostExp(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (layer1): Sequential(
+      (0): BasicBlock(
+        (conv1): FactConv2dPostExp(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential()
+      )
+      (1): BasicBlock(
+        (conv1): FactConv2dPostExp(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential()
+      )
+    )
+    (layer2): Sequential(
+      (0): BasicBlock(
+        (conv1): FactConv2dPostExp(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential(
+          (0): FactConv2dPostExp(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+          (1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (1): BasicBlock(
+        (conv1): FactConv2dPostExp(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential()
+      )
+    )
+    (layer3): Sequential(
+      (0): BasicBlock(
+        (conv1): FactConv2dPostExp(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential(
+          (0): FactConv2dPostExp(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+          (1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (1): BasicBlock(
+        (conv1): FactConv2dPostExp(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential()
+      )
+    )
+    (layer4): Sequential(
+      (0): BasicBlock(
+        (conv1): FactConv2dPostExp(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential(
+          (0): FactConv2dPostExp(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+          (1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        )
+      )
+      (1): BasicBlock(
+        (conv1): FactConv2dPostExp(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (conv2): FactConv2dPostExp(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (shortcut): Sequential()
+      )
+    )
+    (linear): Linear(in_features=512, out_features=10, bias=True)
+  )
+)
+Num params total:  627728
+Num params grad:  627728
+Test Epoch: 1	 Avg Loss: 1.4284	 Accuracy: 47.97%
+Test Epoch: 2	 Avg Loss: 1.3130	 Accuracy: 53.55%
+Test Epoch: 3	 Avg Loss: 1.0982	 Accuracy: 61.21%
+Test Epoch: 4	 Avg Loss: 1.0294	 Accuracy: 63.74%
+Test Epoch: 5	 Avg Loss: 1.1397	 Accuracy: 61.63%
+Test Epoch: 6	 Avg Loss: 0.8018	 Accuracy: 71.52%
+Test Epoch: 7	 Avg Loss: 0.8263	 Accuracy: 71.69%
+Test Epoch: 8	 Avg Loss: 0.7499	 Accuracy: 73.91%
+Test Epoch: 9	 Avg Loss: 0.7222	 Accuracy: 75.43%
+Test Epoch: 10	 Avg Loss: 0.7332	 Accuracy: 74.52%
+Test Epoch: 11	 Avg Loss: 0.7462	 Accuracy: 74.69%
+Test Epoch: 12	 Avg Loss: 0.6834	 Accuracy: 77.12%
+Test Epoch: 13	 Avg Loss: 0.7343	 Accuracy: 75.13%
+Test Epoch: 14	 Avg Loss: 0.7151	 Accuracy: 76.44%
+Test Epoch: 15	 Avg Loss: 0.7190	 Accuracy: 76.58%
+Test Epoch: 16	 Avg Loss: 0.6049	 Accuracy: 79.48%
+Test Epoch: 17	 Avg Loss: 0.6017	 Accuracy: 80.29%
+Test Epoch: 18	 Avg Loss: 0.6246	 Accuracy: 79.08%
+Test Epoch: 19	 Avg Loss: 0.5978	 Accuracy: 79.87%
+Test Epoch: 20	 Avg Loss: 0.6274	 Accuracy: 79.44%
+Test Epoch: 21	 Avg Loss: 0.4965	 Accuracy: 83.25%
+Test Epoch: 22	 Avg Loss: 0.4974	 Accuracy: 83.29%
+Test Epoch: 23	 Avg Loss: 0.4973	 Accuracy: 83.11%
+Test Epoch: 24	 Avg Loss: 0.5027	 Accuracy: 83.13%
+Test Epoch: 25	 Avg Loss: 0.5026	 Accuracy: 83.39%
+Test Epoch: 26	 Avg Loss: 0.4949	 Accuracy: 83.42%
+Test Epoch: 27	 Avg Loss: 0.4951	 Accuracy: 83.48%
+Test Epoch: 28	 Avg Loss: 0.5130	 Accuracy: 83.02%
+Test Epoch: 29	 Avg Loss: 0.5025	 Accuracy: 83.17%
+Test Epoch: 30	 Avg Loss: 0.4946	 Accuracy: 83.53%
+Test Epoch: 31	 Avg Loss: 0.4900	 Accuracy: 83.79%
+Test Epoch: 32	 Avg Loss: 0.4973	 Accuracy: 83.19%
+Test Epoch: 33	 Avg Loss: 0.4981	 Accuracy: 83.53%
+Test Epoch: 34	 Avg Loss: 0.4996	 Accuracy: 83.33%
+Test Epoch: 35	 Avg Loss: 0.5034	 Accuracy: 83.64%
+Test Epoch: 36	 Avg Loss: 0.4863	 Accuracy: 84.12%
+Test Epoch: 37	 Avg Loss: 0.5041	 Accuracy: 83.62%
+Test Epoch: 38	 Avg Loss: 0.4953	 Accuracy: 83.70%
+Test Epoch: 39	 Avg Loss: 0.4989	 Accuracy: 83.50%
+Test Epoch: 40	 Avg Loss: 0.5014	 Accuracy: 83.74%
+Test Epoch: 41	 Avg Loss: 0.4809	 Accuracy: 83.94%
+Test Epoch: 42	 Avg Loss: 0.4801	 Accuracy: 84.17%
+Test Epoch: 43	 Avg Loss: 0.4790	 Accuracy: 84.09%
+Test Epoch: 44	 Avg Loss: 0.4791	 Accuracy: 84.28%
+Test Epoch: 45	 Avg Loss: 0.4795	 Accuracy: 84.26%
+Test Epoch: 46	 Avg Loss: 0.4777	 Accuracy: 84.44%
+Test Epoch: 47	 Avg Loss: 0.4793	 Accuracy: 84.36%
+Test Epoch: 48	 Avg Loss: 0.4815	 Accuracy: 84.15%
+Test Epoch: 49	 Avg Loss: 0.4804	 Accuracy: 84.18%
+Test Epoch: 50	 Avg Loss: 0.4794	 Accuracy: 84.33%
+Test Epoch: 51	 Avg Loss: 0.4778	 Accuracy: 84.32%
+Test Epoch: 52	 Avg Loss: 0.4793	 Accuracy: 84.21%
+Test Epoch: 53	 Avg Loss: 0.4801	 Accuracy: 84.14%
+Test Epoch: 54	 Avg Loss: 0.4803	 Accuracy: 84.22%
+Test Epoch: 55	 Avg Loss: 0.4817	 Accuracy: 84.17%
+Test Epoch: 56	 Avg Loss: 0.4803	 Accuracy: 84.38%
+Test Epoch: 57	 Avg Loss: 0.4813	 Accuracy: 84.17%
+Test Epoch: 58	 Avg Loss: 0.4824	 Accuracy: 84.01%
+Test Epoch: 59	 Avg Loss: 0.4805	 Accuracy: 84.31%
+Test Epoch: 60	 Avg Loss: 0.4812	 Accuracy: 84.32%
+Test Epoch: 61	 Avg Loss: 0.4792	 Accuracy: 84.29%
+Test Epoch: 62	 Avg Loss: 0.4786	 Accuracy: 84.28%
+Test Epoch: 63	 Avg Loss: 0.4787	 Accuracy: 84.34%
+Test Epoch: 64	 Avg Loss: 0.4794	 Accuracy: 84.33%
+Test Epoch: 65	 Avg Loss: 0.4800	 Accuracy: 84.25%
+Test Epoch: 66	 Avg Loss: 0.4788	 Accuracy: 84.49%
+Test Epoch: 67	 Avg Loss: 0.4804	 Accuracy: 84.33%
+Test Epoch: 68	 Avg Loss: 0.4800	 Accuracy: 84.32%
+Test Epoch: 69	 Avg Loss: 0.4795	 Accuracy: 84.28%
+Test Epoch: 70	 Avg Loss: 0.4797	 Accuracy: 84.35%
+Test Epoch: 71	 Avg Loss: 0.4809	 Accuracy: 84.27%
+Test Epoch: 72	 Avg Loss: 0.4795	 Accuracy: 84.29%
+Test Epoch: 73	 Avg Loss: 0.4797	 Accuracy: 84.32%
+Test Epoch: 74	 Avg Loss: 0.4794	 Accuracy: 84.42%
+Test Epoch: 75	 Avg Loss: 0.4794	 Accuracy: 84.41%
+Test Epoch: 76	 Avg Loss: 0.4796	 Accuracy: 84.43%
+Test Epoch: 77	 Avg Loss: 0.4790	 Accuracy: 84.39%
+Test Epoch: 78	 Avg Loss: 0.4799	 Accuracy: 84.34%
+Test Epoch: 79	 Avg Loss: 0.4789	 Accuracy: 84.29%
+Test Epoch: 80	 Avg Loss: 0.4791	 Accuracy: 84.35%
+Test Epoch: 81	 Avg Loss: 0.4790	 Accuracy: 84.44%
+Test Epoch: 82	 Avg Loss: 0.4797	 Accuracy: 84.30%
+Test Epoch: 83	 Avg Loss: 0.4792	 Accuracy: 84.41%
+Test Epoch: 84	 Avg Loss: 0.4797	 Accuracy: 84.34%
+Test Epoch: 85	 Avg Loss: 0.4797	 Accuracy: 84.34%
+Test Epoch: 86	 Avg Loss: 0.4789	 Accuracy: 84.38%
+Test Epoch: 87	 Avg Loss: 0.4800	 Accuracy: 84.40%
+Test Epoch: 88	 Avg Loss: 0.4801	 Accuracy: 84.31%
+Test Epoch: 89	 Avg Loss: 0.4797	 Accuracy: 84.36%
+Test Epoch: 90	 Avg Loss: 0.4797	 Accuracy: 84.35%
+Trial 1 time (HH:MM:SS): 2:14:09.963215
+Learning rate: 0.01

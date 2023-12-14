@@ -43,6 +43,15 @@ if __name__ == '__main__':
     parser.add_argument('--trial', type=int, default=1, help='trial number')
     parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), default=False, help='bias=True or False')
     parser.add_argument('--device', type=int, default=0, help="which device to use (0 or 1)")
+
+    parser.add_argument('--freeze_spatial', dest='freeze_spatial', 
+                        type=lambda x: bool(strtobool(x)), default=True, 
+                        help="freeze spatial filters for LearnableCov models")
+    parser.add_argument('--freeze_channel', dest='freeze_channel', 
+                        type=lambda x: bool(strtobool(x)), default=False,
+                        help="freeze channels for LearnableCov models")
+    parser.add_argument('--spatial_init', type=str, default='V1', choices=['default', 'V1'], 
+                        help="initialization for spatial filters for LearnableCov models")
     args = parser.parse_args()
     initial_lr = args.lr
 
@@ -51,7 +60,9 @@ if __name__ == '__main__':
 
     start = datetime.now()
 
-    model = LC_models.V1_CIFAR100(args.hidden_dim, args.s, args.f, args.scale, args.bias).to(device)
+    model = LC_models.V1_CIFAR100(args.hidden_dim, args.s, args.f, args.scale,
+            args.bias, args.freeze_spatial, args.freeze_channel,
+            args.spatial_init).to(device)
     print("Num params: ", sum(p.numel() for p in model.parameters()))
     print("Num params grad: ", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
@@ -67,16 +78,20 @@ if __name__ == '__main__':
                                      std=[0.229, 0.224, 0.225])
 
     train_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR100(root=scattering_datasets.get_dataset_dir('CIFAR100'), train=True, transform=transforms.Compose([
+        datasets.CIFAR100(
+            root=scattering_datasets.get_dataset_dir('CIFAR100'), 
+            train=True, transform=transforms.Compose([
             transforms.RandomHorizontalFlip(),
             transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
             normalize,
         ]), download=True),
-        batch_size=128, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
+        batch_size=512, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 
     test_loader = torch.utils.data.DataLoader(
-        datasets.CIFAR100(root=scattering_datasets.get_dataset_dir('CIFAR100'), train=False, transform=transforms.Compose([
+        datasets.CIFAR100(
+            root=scattering_datasets.get_dataset_dir('CIFAR100'), 
+            train=False, transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
         ])),

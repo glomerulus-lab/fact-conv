@@ -1,0 +1,296 @@
+*** Experiment 1 ***
+freeze_spatial: True freeze_channel: True exponential location: post
+V1 spatial init
+Freeze spatial vec
+Freeze channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPostExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPostExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  130548
+
+freeze_spatial: True freeze_channel: True exponential location: post
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:04.005390
+Hidden dim: 100	 Learning rate: 0.01
+
+*** Experiment 2 ***
+freeze_spatial: True freeze_channel: False exponential location: post
+V1 spatial init
+Freeze spatial vec
+Learnable channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPostExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPostExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  135910
+
+freeze_spatial: True freeze_channel: False exponential location: post
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(1.2317797169e-02, device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(6.2150761485e-02, device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(1.1808644049e-03, device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(2.3403813248e-04, device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(1.4691637829e-02, device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(1.1870082468e-01, device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:02.516919
+Hidden dim: 100	 Learning rate: 0.01
+
+*** Experiment 3 ***
+freeze_spatial: False freeze_channel: True exponential location: post
+V1 spatial init
+Learnable spatial vec
+Freeze channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPostExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPostExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  132998
+
+freeze_spatial: False freeze_channel: True exponential location: post
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(0., device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385140657e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1947704554e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(0., device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:02.394622
+Hidden dim: 100	 Learning rate: 0.01
+
+*** Experiment 4 ***
+freeze_spatial: False freeze_channel: False exponential location: post
+V1 spatial init
+Learnable spatial vec
+Learnable channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPostExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPostExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  138360
+
+freeze_spatial: False freeze_channel: False exponential location: post
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(1.2317797169e-02, device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(0., device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(6.2150761485e-02, device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(1.1808644049e-03, device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385140657e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(2.3403813248e-04, device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1947704554e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(3.5003762605e-05, device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(1.4691472985e-02, device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(1.2524122212e-05, device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(1.1869888753e-01, device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:02.608841
+Hidden dim: 100	 Learning rate: 0.01
+
+*** Experiment 5 ***
+freeze_spatial: True freeze_channel: True exponential location: pre
+V1 spatial init
+Freeze spatial vec
+Freeze channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPreExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPreExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  130548
+
+freeze_spatial: True freeze_channel: True exponential location: pre
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:02.682285
+Hidden dim: 100	 Learning rate: 0.01
+
+*** Experiment 6 ***
+freeze_spatial: True freeze_channel: False exponential location: pre
+V1 spatial init
+Freeze spatial vec
+Learnable channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPreExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPreExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  135910
+
+freeze_spatial: True freeze_channel: False exponential location: pre
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(2.8807790950e-03, device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(2.1231610328e-02, device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(4.0340056876e-04, device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(5.4734799050e-05, device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(3.6177928559e-03, device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(7.2105236351e-02, device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:02.989265
+Hidden dim: 100	 Learning rate: 0.01
+
+*** Experiment 7 ***
+freeze_spatial: False freeze_channel: True exponential location: pre
+V1 spatial init
+Learnable spatial vec
+Freeze channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPreExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPreExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  132998
+
+freeze_spatial: False freeze_channel: True exponential location: pre
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(2.2896543145e-01, device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(7.8848078847e-02, device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385319471e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948735714e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(4.9970228225e-02, device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(9.5231086016e-02, device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:02.567849
+Hidden dim: 100	 Learning rate: 0.01
+
+*** Experiment 8 ***
+freeze_spatial: False freeze_channel: False exponential location: pre
+V1 spatial init
+Learnable spatial vec
+Learnable channel vec
+V1_CIFAR10(
+  (lc_layer): FactConv2dPreExp(3, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (lc_layer2): FactConv2dPreExp(103, 100, kernel_size=(7, 7), stride=(1, 1), padding=(3, 3), bias=False)
+  (relu): ReLU()
+  (bn_x): BatchNorm2d(3, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h1): BatchNorm2d(103, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (bn_h2): BatchNorm2d(203, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (clf): Linear(in_features=12992, out_features=10, bias=True)
+)
+Num params total:  138360
+Num params grad:  138360
+
+freeze_spatial: False freeze_channel: False exponential location: pre
+iteration 0
+lc_layer Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385689020e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(0., device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948580742e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(2.2896543145e-01, device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(2.8807790950e-03, device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(7.8848078847e-02, device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(2.1231610328e-02, device='cuda:0')
+
+iteration 1
+lc_layer Tri1_vec RMS: tensor(4.0340056876e-04, device='cuda:0')
+lc_layer Tri2_vec RMS: tensor(5.7385319471e-01, device='cuda:0')
+lc_layer2 Tri1_vec RMS: tensor(5.4734799050e-05, device='cuda:0')
+lc_layer2 Tri2_vec RMS: tensor(9.1948735714e-01, device='cuda:0')
+lc_layer2 Tri2_vec Grad RMS: tensor(5.0010658801e-02, device='cuda:0')
+lc_layer2 Tri1_vec Grad RMS: tensor(3.4345495515e-03, device='cuda:0')
+lc_layer Tri2_vec Grad RMS: tensor(9.5442458987e-02, device='cuda:0')
+lc_layer Tri1_vec Grad RMS: tensor(5.6763611734e-02, device='cuda:0')
+
+Trial 1 time (HH:MM:SS): 0:00:02.923680
+Hidden dim: 100	 Learning rate: 0.01
+
