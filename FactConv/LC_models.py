@@ -4,9 +4,9 @@ import torch.nn.functional as F
 from FactConv.layers.LearnableCov import FactConv2d, V1_init
 
 
-class V1_MNIST(nn.Module):
+class LC_MNIST(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
-        super(V1_MNIST, self).__init__()
+        super(LC_MNIST, self).__init__()
         self.lc_layer = \
             FactConv2d(in_channels=1, out_channels=hidden_dim,
                                        kernel_size=7, stride=1, padding=3, 
@@ -50,7 +50,7 @@ class V1_MNIST(nn.Module):
         beta = self.clf(concat) 
         return beta
 
-class V1_CIFAR10(nn.Module):
+class LC_CIFAR10(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias,
             freeze_spatial, freeze_channel, spatial_init, seed=None):
         super().__init__()
@@ -150,10 +150,10 @@ class V1_CIFAR10(nn.Module):
 #         h = flatten(pool(h))
 #         return self.clf(h)
 
-class V1_CIFAR100(nn.Module):
+class LC_CIFAR100(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias,
             freeze_spatial, freeze_channel, spatial_init, seed=None):
-        super(V1_CIFAR100, self).__init__()
+        super(LC_CIFAR100, self).__init__()
         self.lc_layer = \
                 FactConv2d(in_channels=3, out_channels=hidden_dim,
                         kernel_size=7, stride=1, padding=3, bias=bias)
