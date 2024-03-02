@@ -9,7 +9,7 @@ import os
 from distutils.util import strtobool
 import argparse
 import torch.nn.functional as F
-from FactConv.LC_models import V1_CIFAR10
+from FactConv.LC_models import LC_CIFAR10
 
     
 def train(model, device, train_loader, optimizer, epoch):
