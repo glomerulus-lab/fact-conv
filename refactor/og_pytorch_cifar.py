@@ -20,12 +20,13 @@ import wandb
 
 from distutils.util import strtobool
 
-from resnet import ResNet18
+from conv_modules import FactConv2dPreExp
 
 # TODO: import define_models function
+from models.define_models import define_models
 
 def save_model(args, model):
-    src    = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/CIFAR10_pytorch_tta/"
+    src= "/home/mila/v/vivian.white/scratch/v1-models/saved-models/test_refactor/"
     model_dir =  src + args.name
     os.makedirs(model_dir, exist_ok=True)
     os.chdir(model_dir)
@@ -43,7 +44,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
-parser.add_argument('--net', type=str, default='vgg', choices=['vgg', 'vggbn',
+parser.add_argument('--net', type=str, default='resnet18', choices=['vgg', 'vggbn',
     'resnet', 'factnetv1', 'factnetdefault', 'vggfact', 'vggbnfact'], help="which convmodule to use")
 parser.add_argument('--freeze_spatial', dest='freeze_spatial', 
                     type=lambda x: bool(strtobool(x)), default=True, 
@@ -60,6 +61,7 @@ parser.add_argument('--name', type=str, default='TESTING_VGG',
                         help='filename for saved model')
 parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), 
                         default=False, help='bias=True or False')
+parser.add_argument('--seed', default=0, type=int, help='seed to use')
 
 args = parser.parse_args()
 
@@ -98,7 +100,6 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 
 
-from ConvModules import FactConv2dPreExp
 def replace_layers_keep_weight(model):
     for n, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -123,12 +124,13 @@ def replace_layers_keep_weight(model):
 
 set_seeds(args.seed)
 net = define_models(args.net)
+replace_layers_keep_weight(net)
 run_name = args.net
-
+print("Model Built!")
 set_seeds(args.seed)
 
 net = net.to(device)
-wandb_dir = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/wandb"
+wandb_dir = "/home/mila/v/vivian.white/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 run_name = "OGVGG"
