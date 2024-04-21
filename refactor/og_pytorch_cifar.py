@@ -123,7 +123,7 @@ def replace_layers_keep_weight(model):
             setattr(model, n, new_module)
 
 set_seeds(args.seed)
-net = define_models(args.net)
+net = define_models(args)
 replace_layers_keep_weight(net)
 run_name = args.net
 print("Model Built!")
