@@ -11,9 +11,7 @@ import copy
 def _contract(tensor, matrix, axis):
     """tensor is (..., D, ...), matrix is (P, D), returns (..., P, ...)."""
     t = torch.moveaxis(tensor, source=axis, destination=-1)  # (..., D)
-
     r = t @ matrix.T  # (..., P)
-
     return torch.moveaxis(r, source=-1, destination=axis)  # (..., P, ...)
 
 
@@ -62,7 +60,6 @@ class FactConv2dPostExp(nn.Conv2d):
         tri2_vec = torch.zeros((triu2_len,), **factory_kwargs)
         self.tri2_vec = Parameter(tri2_vec)
         
-        
     def forward(self, input: Tensor) -> Tensor:
         U1 = self._tri_vec_to_mat(self.tri1_vec, self.in_channels // self.groups)
         U2 = self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1])
@@ -77,18 +74,14 @@ class FactConv2dPostExp(nn.Conv2d):
         
         return self._conv_forward(input, composite_weight, self.bias)
 
-
     def _tri_vec_to_mat(self, vec, n):
         U = torch.zeros((n, n), **self.factory_kwargs)
         U[torch.triu_indices(n, n, **self.factory_kwargs).tolist()] = vec
         return U
 
-
     def _exp_diag(self, mat):
         exp_diag = torch.exp(torch.diagonal(mat))
-
         n = mat.shape[0]
-
         mat[range(n), range(n)] = exp_diag
         return mat
 
@@ -144,14 +137,12 @@ class FactConv2dPreExp(nn.Conv2d):
         tri2_vec = torch.zeros((triu2_len,), **factory_kwargs)
         self.tri2_vec = Parameter(tri2_vec)
 
-
     def construct_Us(self):
         self.tri1_vec = Parameter(self._tri_vec_to_mat(self.tri1_vec, self.in_channels //
                 self.groups,self.scat_idx1))
         self.tri2_vec = Parameter(self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1],
                 self.scat_idx2))
 
-        
     def forward(self, input: Tensor) -> Tensor:
         U1 = self._tri_vec_to_mat(self.tri1_vec, self.in_channels //
                                   self.groups, self.scat_idx1)        
@@ -165,11 +156,9 @@ class FactConv2dPreExp(nn.Conv2d):
         ).reshape(self.weight.shape)
         return self._conv_forward(input, composite_weight, self.bias)
 
-
     def _tri_vec_to_mat(self, vec, n, scat_idx):
         U = torch.zeros((n* n),
                 **self.factory_kwargs).scatter_(0,scat_idx,vec).view(n,n)
         U = torch.diagonal_scatter(U,U.diagonal().exp_())
         return U
-
 
