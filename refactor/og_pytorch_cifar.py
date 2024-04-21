@@ -14,7 +14,6 @@ import argparse
 
 from pytorch_cifar_utils import progress_bar, set_seeds
 
-from test_models_safety import PostExp, PreExp
 from hooks import wandb_forwards_hook, wandb_backwards_hook
 
 import wandb
@@ -22,10 +21,9 @@ import wandb
 from distutils.util import strtobool
 
 from resnet import ResNet18
-from vgg import VGG
 
-from test_models_safety import PostExp, PreExp
-    
+# TODO: import define_models function
+
 def save_model(args, model):
     src    = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/CIFAR10_pytorch_tta/"
     model_dir =  src + args.name
@@ -98,23 +96,8 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 
 # Model
 print('==> Building model..')
-# net = VGG('VGG19')
-# net = ResNet18()
-# net = PreActResNet18()
-# net = GoogLeNet()
-# net = DenseNet121()
-# net = ResNeXt29_2x64d()
-# net = MobileNet()
-# net = MobileNetV2()
-# net = DPN92()
-# net = ShuffleNetG2()
-# net = SENet18()
-# net = ShuffleNetV2(1)
-# net = EfficientNetB0()
-# net = RegNetX_200MF()
-#
-#
-#
+
+
 from ConvModules import FactConv2dPreExp
 def replace_layers_keep_weight(model):
     for n, module in model.named_children():
@@ -138,39 +121,13 @@ def replace_layers_keep_weight(model):
             #new_module.tri1_vec = nn.Parameter(int(new_module.tri1_vec * scale))
             setattr(model, n, new_module)
 
-set_seeds(0)
-if args.net == "vgg":
-    net=VGG("VGG11", False)
-    run_name = "OGVGG"
-elif args.net == "vggbn":
-    net=VGG("VGG11", True)
-    run_name = "OGVGGBN"
-elif args.net == "resnet":
-    net = ResNet18()
-    run_name = "Resnet"
-elif args.net == "factnetv1":
-    net = PreExp(1, args.s, args.f, args.scale, args.bias, args.freeze_spatial, args.freeze_channel, "V1").to(device)
-    run_name ="FactnetV1"
-elif args.net == "factnetdefault":
-    net = PreExp(1, args.s, args.f, args.scale, args.bias, args.freeze_spatial, args.freeze_channel, "default").to(device)
-    run_name ="Factnetdefault"
-elif args.net == "vggfact":
-    net=VGG("VGG11", False)
-    replace_layers_keep_weight(net)
-    run_name ="vggfactdefault"
-elif args.net == "vggbnfact":
-    net=VGG("VGG11", True)
-    replace_layers_keep_weight(net)
-    run_name ="vggbnnfactdefault"
+set_seeds(args.seed)
+net = define_models(args.net)
+run_name = args.net
 
-
-set_seeds(0)
-set_seeds(0)
+set_seeds(args.seed)
 
 net = net.to(device)
-#if device == 'cuda':
-    #net = torch.nn.DataParallel(net)
-    #cudnn.benchmark = True
 wandb_dir = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
@@ -180,14 +137,6 @@ run = wandb.init(project="random_project", config=args,
         group="pytorch_cifar_better_tracked_og", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
-if args.resume:
-    # Load checkpoint.
-    print('==> Resuming from checkpoint..')
-    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-    checkpoint = torch.load('./checkpoint/ckpt.pth')
-    net.load_state_dict(checkpoint['net'])
-    best_acc = checkpoint['acc']
-    start_epoch = checkpoint['epoch']
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
@@ -248,9 +197,6 @@ def test(epoch):
             'acc': acc,
             'epoch': epoch,
         }
-        #if not os.path.isdir('checkpoint'):
-        #    os.mkdir('checkpoint')
-        #torch.save(state, './checkpoint/ckpt.pth')
         save_model(args, net)
         best_acc = acc
 
