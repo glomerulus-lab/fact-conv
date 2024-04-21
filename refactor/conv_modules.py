@@ -149,6 +149,8 @@ class FactConv2dPreExp(nn.Conv2d):
         U2 = self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1],
                 self.scat_idx2
         )
+        # flatten over filter dims and contract
+        composite_weight = _contract(self.weight, U1.T, 1)
         composite_weight = _contract(
             torch.flatten(composite_weight, -2, -1), U2.T, -1
         ).reshape(self.weight.shape)
@@ -156,6 +158,8 @@ class FactConv2dPreExp(nn.Conv2d):
 
 
     def _tri_vec_to_mat(self, vec, n, scat_idx):
+        U = torch.zeros((n* n),
+                **self.factory_kwargs).scatter_(0,scat_idx,vec).view(n,n)
         U = torch.diagonal_scatter(U,U.diagonal().exp_())
         return U
 
