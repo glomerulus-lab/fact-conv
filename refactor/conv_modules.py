@@ -11,7 +11,9 @@ import copy
 def _contract(tensor, matrix, axis):
     """tensor is (..., D, ...), matrix is (P, D), returns (..., P, ...)."""
     t = torch.moveaxis(tensor, source=axis, destination=-1)  # (..., D)
+
     r = t @ matrix.T  # (..., P)
+
     return torch.moveaxis(r, source=-1, destination=axis)  # (..., P, ...)
 
 class FactConv2dPostExp(nn.Conv2d):
@@ -81,7 +83,9 @@ class FactConv2dPostExp(nn.Conv2d):
 
     def _exp_diag(self, mat):
         exp_diag = torch.exp(torch.diagonal(mat))
+
         n = mat.shape[0]
+
         mat[range(n), range(n)] = exp_diag
         return mat
 
