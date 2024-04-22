@@ -6,6 +6,26 @@ sys.path.insert(0, '/home/mila/v/vivian.white/structured-random-features')
 from src.models.init_weights import V1_init, classical_init, V1_weights
 import gc
 
+def replace_linear_layer(model):
+    for n, module in model.named_children():
+        if len(list(module.children())) > 0:
+            ## compound module, go inside it
+            replace_layers_keep_weight(module)
+        if isinstance(module, nn.Linear):
+            ## simple module
+            new_module = nn.Linear(
+                    in_features=module.in_features, 
+                    out_features=100, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            #new_sd['weight'] = old_sd['weight']
+            #if module.bias is not None:
+            #    new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            setattr(model, n, new_module)
+
+
 class V1_CIFAR10(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias=False, seed=None):
         super().__init__()
@@ -50,7 +70,7 @@ class V1_CIFAR10(nn.Module):
         
 
 class V1_CIFAR100(nn.Module):
-    def __init__(self, hidden_dim, size, spatial_freq, scale, bias, seed=None):
+    def __init__(self, hidden_dim, size, spatial_freq, scale, bias=False, seed=None):
         super(V1_CIFAR100, self).__init__()
         
         self.bn_x = nn.BatchNorm2d(3)
