@@ -103,8 +103,7 @@ def init_V1_layers(model, bias):
             ## compound module, go inside it
             init_V1_layers(module, bias)
         if isinstance(module, FactConv2d):
-            kernel_size = 3 
-            center = ((kernel_size - 1) / 2, (kernel_size - 1) / 2)
+            center = ((module.kernel_size[0] - 1) / 2, (module.kernel_size[1] - 1) / 2)
             V1_init(module, size=2, spatial_freq=0.1, scale=1, center=center)
             for name, param in module.named_parameters():
                 if "weight" in name:
