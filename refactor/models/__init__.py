@@ -5,13 +5,13 @@ def define_models(args):
        model = ResNet18()
     if 'fact' in args.net:
        replace_layers_keep_weight(model)
-    if "v1" in args.net:
+    if args.spatial_init == 'V1':
         # TODO: import V1_init function from structured-random-features
         V1_init(model)
-    if "us" in args.net: 
+    if args.freeze_spatial == True: 
         # TODO: make turn_off_grad function
         turn_off_grad(model, "spatial")
-    if "uc" in args.net:
+    if args.freeze_channel == True:
         turn_off_grad(model, "channel")
     if args.width != 1:
         replace_layers_scale(model, args.width)
