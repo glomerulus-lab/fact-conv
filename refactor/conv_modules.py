@@ -1,11 +1,9 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-from torch.nn.parameter import Parameter, UninitializedParameter
+from torch.nn.parameter import Parameter
 from torch.nn.common_types import _size_2_t
 from typing import Optional, List, Tuple, Union
-import time
-import copy
 
 
 def _contract(tensor, matrix, axis):
