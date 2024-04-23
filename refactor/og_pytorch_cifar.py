@@ -33,7 +33,7 @@ parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--net', type=str, default='resnet18', choices=['resnet18',
-    'rsn_cifar10', 'rsn_cifar100'],
+    'resnet18-fact'],
     help="which model to use")
 parser.add_argument('--num_epochs', type=int, default=90, help='number of trainepochs')
 parser.add_argument('--hidden_dim', type=int, default=100, 
