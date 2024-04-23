@@ -32,27 +32,11 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
-parser.add_argument('--net', type=str, default='resnet18', choices=['resnet18',
-    'resnet18-fact'],
+parser.add_argument('--net', type=str, default='resnet18', #choices=['resnet18','resnet18-fact'],
     help="which model to use")
-parser.add_argument('--num_epochs', type=int, default=90, help='number of trainepochs')
-parser.add_argument('--hidden_dim', type=int, default=100, 
-                        help='number of hidden dimensions in model')
-parser.add_argument('--freeze_spatial', dest='freeze_spatial', 
-                    type=lambda x: bool(strtobool(x)), default=True, 
-                    help="freeze spatial filters for LearnableCov models")
-parser.add_argument('--freeze_channel', dest='freeze_channel', 
-                    type=lambda x: bool(strtobool(x)), default=False,
-                    help="freeze channels for LearnableCov models")
-parser.add_argument('--spatial_init', type=str, default='V1', choices=['default', 'V1'], 
-                    help="initialization for spatial filters for LearnableCov models")
-parser.add_argument('--s', type=int, default=2, help='V1 size')
-parser.add_argument('--f', type=float, default=0.1, help='V1 spatial frequency')
-parser.add_argument('--scale', type=int, default=1, help='V1 scale')
+parser.add_argument('--num_epochs', type=int, default=200, help='number of trainepochs')
 parser.add_argument('--name', type=str, default='TESTING_VGG', 
                         help='filename for saved model')
-parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), 
-                        default=False, help='bias=True or False')
 parser.add_argument('--seed', default=0, type=int, help='seed to use')
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
 
@@ -94,7 +78,8 @@ print('==> Building model..')
 
 net = define_models(args)
 run_name = args.net
-print("Model Built! ", net)
+print("Args.net: ", args.net)
+print("Net: ", net)
 set_seeds(args.seed)
 
 net = net.to(device)
