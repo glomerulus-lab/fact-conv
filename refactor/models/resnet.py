@@ -111,7 +111,6 @@ def ResNet18():
 def ResNet18_Class100():
     return ResNet(BasicBlock, [2, 2, 2, 2], 100)
 
-# TODO: use a recursive function to replace all linears with final dim 100
 
 def ResNet34():
     return ResNet(BasicBlock, [3, 4, 6, 3])

@@ -4,26 +4,14 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-from torch.profiler import profile, record_function, ProfilerActivity
-
 import torchvision
 import torchvision.transforms as transforms
-
 import os
 import argparse
-
 from pytorch_cifar_utils import progress_bar, set_seeds
-
-from hooks import wandb_forwards_hook, wandb_backwards_hook
-
 import wandb
-
 from distutils.util import strtobool
-
-from conv_modules import FactConv2dPreExp
-
-# TODO: import define_models function
-from models.define_models import define_models
+from models import define_models
 
 def save_model(args, model):
     src= "/home/mila/v/vivian.white/scratch/v1-models/saved-models/test_refactor/"
@@ -44,8 +32,12 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
-parser.add_argument('--net', type=str, default='resnet18', choices=['vgg', 'vggbn',
-    'resnet', 'factnetv1', 'factnetdefault', 'vggfact', 'vggbnfact'], help="which convmodule to use")
+parser.add_argument('--net', type=str, default='resnet18', choices=['resnet18',
+    'rsn_cifar10', 'rsn_cifar100'],
+    help="which model to use")
+parser.add_argument('--num_epochs', type=int, default=90, help='number of trainepochs')
+parser.add_argument('--hidden_dim', type=int, default=100, 
+                        help='number of hidden dimensions in model')
 parser.add_argument('--freeze_spatial', dest='freeze_spatial', 
                     type=lambda x: bool(strtobool(x)), default=True, 
                     help="freeze spatial filters for LearnableCov models")
@@ -62,6 +54,7 @@ parser.add_argument('--name', type=str, default='TESTING_VGG',
 parser.add_argument('--bias', dest='bias', type=lambda x: bool(strtobool(x)), 
                         default=False, help='bias=True or False')
 parser.add_argument('--seed', default=0, type=int, help='seed to use')
+parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
 
 args = parser.parse_args()
 
@@ -75,12 +68,17 @@ transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    #transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    # normalization slightly different from old training setup
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
 ])
 
 transform_test = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    #transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
 ])
 
 trainset = torchvision.datasets.CIFAR10(
@@ -99,44 +97,18 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 # Model
 print('==> Building model..')
 
-
-def replace_layers_keep_weight(model):
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_layers_keep_weight(module)
-        if isinstance(module, nn.Conv2d):
-            ## simple module
-            new_module = FactConv2dPreExp(
-                    in_channels=module.in_channels,
-                    out_channels=module.out_channels,
-                    kernel_size=module.kernel_size,
-                    stride=module.stride, padding=module.padding, 
-                    bias=True if module.bias is not None else False)
-            old_sd = module.state_dict()
-            new_sd = new_module.state_dict()
-            new_sd['weight'] = old_sd['weight']
-            if module.bias is not None:
-                new_sd['bias'] = old_sd['bias']
-            new_module.load_state_dict(new_sd)
-            #new_module.tri1_vec = nn.Parameter(int(new_module.tri1_vec * scale))
-            setattr(model, n, new_module)
-
-set_seeds(args.seed)
 net = define_models(args)
-replace_layers_keep_weight(net)
 run_name = args.net
-print("Model Built!")
+print("Model Built! ", net)
 set_seeds(args.seed)
 
 net = net.to(device)
 wandb_dir = "/home/mila/v/vivian.white/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
-run_name = "OGVGG"
 
-run = wandb.init(project="random_project", config=args,
-        group="pytorch_cifar_better_tracked_og", name=run_name, dir=wandb_dir)
+run = wandb.init(project="refactoring", config=args,
+        group="pytorch_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 
@@ -144,7 +116,6 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-
 
 # Training
 def train(epoch):
@@ -203,7 +174,7 @@ def test(epoch):
         best_acc = acc
 
 
-for epoch in range(start_epoch, start_epoch+200):#00
+for epoch in range(start_epoch, start_epoch+args.num_epochs):
     train(epoch)
     test(epoch)
     scheduler.step()
