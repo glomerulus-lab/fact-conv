@@ -2,14 +2,14 @@ import torch
 import torch.nn as nn
 from conv_modules import FactConv2d
 
-def replace_layers_keep_weight(model):
+def replace_layers_factconv2d(model):
     '''
     Replace nn.Conv2d layers with FactConv2d
     '''
     for n, module in model.named_children():
         if len(list(module.children())) > 0:
             ## compound module, go inside it
-            replace_layers_keep_weight(module)
+            replace_layers_factconv2d(module)
         if isinstance(module, nn.Conv2d):
             ## simple module
             new_module = FactConv2d(
@@ -75,4 +75,20 @@ def replace_layers_scale(model, scale=1):
             setattr(model, n, new_module)
 
 def turn_off_grad(model, covariance):
-    #TODO: turn off gradients
+    '''
+    Turn off gradients in tri1_vec or tri2_vec to turn off
+    channel or spatial covariance learning
+    '''
+    for n, module in model.named_children():
+        if len(list(module.children())) > 0:
+            ## compound module, go inside it
+            turn_off_grad(module, covariance)
+        if isinstance(module, FactConv2d):
+            for name, param in module.named_parameters():
+                if covariance == "channel":
+                    if "tri1_vec" in name:
+                        param.requires_grad = False
+                if covariance == "spatial":
+                    if "tri2_vec" in name:
+                        param.requires_grad = False
+
