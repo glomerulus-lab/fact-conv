@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from conv_modules import FactConv2dPreExp
+from conv_modules import FactConv2d
 
 def replace_layers_keep_weight(model):
     '''
@@ -12,7 +12,7 @@ def replace_layers_keep_weight(model):
             replace_layers_keep_weight(module)
         if isinstance(module, nn.Conv2d):
             ## simple module
-            new_module = FactConv2dPreExp(
+            new_module = FactConv2d(
                     in_channels=module.in_channels,
                     out_channels=module.out_channels,
                     kernel_size=module.kernel_size,
@@ -24,7 +24,6 @@ def replace_layers_keep_weight(model):
             if module.bias is not None:
                 new_sd['bias'] = old_sd['bias']
             new_module.load_state_dict(new_sd)
-            #new_module.tri1_vec = nn.Parameter(int(new_module.tri1_vec * scale))
             setattr(model, n, new_module)
 
 def replace_affines(model):
@@ -44,7 +43,7 @@ def replace_affines(model):
                     track_running_stats=module.track_running_stats)
             setattr(model, n, new_module)
 
-def replace_layers_agnostic(model, scale=1):
+def replace_layers_scale(model, scale=1):
     '''
     Replace nn.Conv2d layers with a different scale
     '''
@@ -52,7 +51,7 @@ def replace_layers_agnostic(model, scale=1):
     for n, module in model.named_children():
         if len(list(module.children())) > 0:
             ## compound module, go inside it
-            replace_layers_agnostic(module,scale)
+            replace_layers_scale(module,scale)
         if isinstance(module, nn.Conv2d):
             if module.in_channels == 3:
                 in_scale = 1 
@@ -72,5 +71,8 @@ def replace_layers_agnostic(model, scale=1):
             new_module = nn.BatchNorm2d(prev_out_ch)
             setattr(model, n, new_module)
         if isinstance(module, nn.Linear):
-            new_module = nn.Linear(int(512 * scale), 10)
+            new_module = nn.Linear(int(module.in_features * scale), 10)
             setattr(model, n, new_module)
+
+def turn_off_grad(model, covariance):
+    #TODO: turn off gradients
