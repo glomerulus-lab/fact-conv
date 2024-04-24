@@ -13,12 +13,9 @@ import argparse
 import copy
 
 from pytorch_cifar_utils import progress_bar, set_seeds
-from test_models_safety import PostExp, PreExp
-from  layers_model import ThreeLayer_CIFAR10, Sequential_ThreeLayer_CIFAR10
 import wandb
 from distutils.util import strtobool
-from resnet import ResNet18
-from vgg import VGG
+from models.resnet import ResNet18
 import numpy as np
 import gc
 #torch.backends.cudnn.allow_tf32 = True
@@ -27,7 +24,7 @@ import gc
     
 def save_model(args, model):
     #assert False
-    src = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/eigh_final_refactor_covar_new_testing_rainbow_models/"
+    src = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/refactoring/"
     model_dir =  src + args.name
     os.makedirs(model_dir, exist_ok=True)
     os.chdir(model_dir)
@@ -101,7 +98,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 
 # Model
 print('==> Building model..')
-from ConvModules import FactConv2dPreExp
+from conv_modules import FactConv2d
 
 def replace_layers_agnostic(model, scale=1):
     prev_out_ch = 0
@@ -151,7 +148,7 @@ def replace_layers(model):
             replace_layers(module)
         if isinstance(module, nn.Conv2d):
             ## simple module
-            new_module = FactConv2dPreExp(
+            new_module = FactConv2d(
                     in_channels=module.in_channels,
                     out_channels=module.out_channels,
                     kernel_size=module.kernel_size,
@@ -164,7 +161,7 @@ def replace_layers_fact(model):
         if len(list(module.children())) > 0:
             ## compound module, go inside it
             replace_layers_fact(module)
-        if isinstance(module, FactConv2dPreExp):
+        if isinstance(module, FactConv2d):
             ## simple module
             new_module = nn.Conv2d(
                     in_channels=module.in_channels,
@@ -194,7 +191,6 @@ def replace_layers_fact(model):
 
 
 net=ResNet18()
-#net=Sequential_ThreeLayer_CIFAR10(100,False)
 net.to(device)
 replace_layers_agnostic(net, args.width)
 if args.fact:
@@ -280,8 +276,8 @@ def our_rainbow_sampling(model, new_model):
             our_rainbow_sampling(m1, m2)
         if isinstance(m1, nn.Conv2d):
             print("conv")
-            if isinstance(m2, FactConv2dPreExp):
-                new_module = FactConv2dPreExp(
+            if isinstance(m2, FactConv2d):
+                new_module = FactConv2d(
                     in_channels=m2.in_channels,
                     out_channels=m2.out_channels,
                     kernel_size=m2.kernel_size,
@@ -309,7 +305,7 @@ def our_rainbow_sampling(model, new_model):
             if m1.in_channels != 3 and args.aca:
                 new_module = conv_ACA(m1, m2, new_module)
             # converts fact conv to conv. this is for sake of speed.
-            #if isinstance(new_module, FactConv2dPreExp):
+            #if isinstance(new_module, FactConv2d):
             #    new_module = fact_2_conv(new_module)
            #changes the network module
             setattr(new_model, n1, new_module)
@@ -763,6 +759,7 @@ net_new.eval()
 #        if args.fact else "Conv", str(args.width), "No" if not args.affine else
 #        "Yes")
 #
+run_name = "refactor"
 args.name = run_name
 print(net_new)
 sampled_acc, sampled_loss = test(0, net_new)
@@ -793,6 +790,7 @@ os.chdir(wandb_dir)
 group_string = "eigh_final_iclr_ACA_{}_WA_{}_{}_{}_rainbow_sampling".format("On" if
         args.aca else "Off", "Input" if args.in_wa else "Output", "On" if
         args.wa else "Off", "Fact" if args.fact else "Conv")
+group_name = "refactor"
 run = wandb.init(project="random_project", config=args,
         group=group_string, name=run_name, dir=wandb_dir)
 run.log(logger)
