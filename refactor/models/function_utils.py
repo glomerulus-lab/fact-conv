@@ -27,6 +27,7 @@ def replace_layers_factconv2d(model):
             new_module.load_state_dict(new_sd)
             setattr(model, n, new_module)
 
+
 def replace_affines(model):
     '''
     Set BatchNorm2d layers to have 'affine=False'
@@ -43,6 +44,7 @@ def replace_affines(model):
                     affine=False,
                     track_running_stats=module.track_running_stats)
             setattr(model, n, new_module)
+
 
 def replace_layers_scale(model, scale=1):
     '''
@@ -75,6 +77,7 @@ def replace_layers_scale(model, scale=1):
             new_module = nn.Linear(int(module.in_features * scale), 10)
             setattr(model, n, new_module)
 
+
 def turn_off_grad(model, covariance):
     '''
     Turn off gradients in tri1_vec or tri2_vec to turn off
@@ -92,6 +95,7 @@ def turn_off_grad(model, covariance):
                 if covariance == "spatial":
                     if "tri2_vec" in name:
                         param.requires_grad = False
+
 
 def init_V1_layers(model, bias):
     '''
