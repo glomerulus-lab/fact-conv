@@ -3,14 +3,23 @@ import torch.nn as nn
 from conv_modules import FactConv2d
 from learnable_cov import V1_init
 
+
+def recurse_preorder(model, callback):
+    r = callback(model)
+    if r is not model and r is not None:
+        return r
+    for n, module in model.named_children():
+        r = recurse_preorder(module, callback)
+        if r is not module and r is not None:
+            setattr(model, n, r)
+    return model
+
+
 def replace_layers_factconv2d(model):
     '''
     Replace nn.Conv2d layers with FactConv2d
     '''
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_layers_factconv2d(module)
+    def _replace_layers_factconv2d(module):
         if isinstance(module, nn.Conv2d):
             ## simple module
             new_module = FactConv2d(
@@ -25,17 +34,17 @@ def replace_layers_factconv2d(model):
             if module.bias is not None:
                 new_sd['bias'] = old_sd['bias']
             new_module.load_state_dict(new_sd)
-            setattr(model, n, new_module)
+            return new_module
+        return module
+    return recurse_preorder(model, _replace_layers_factconv2d)
 
 
+#TODO: VIVIAN TEST THIS
 def replace_affines(model):
     '''
     Set BatchNorm2d layers to have 'affine=False'
     '''
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_affines(module)
+    def _replace_affines(module):
         if isinstance(module, nn.BatchNorm2d):
             ## simple module
             new_module = nn.BatchNorm2d(
@@ -43,18 +52,16 @@ def replace_affines(model):
                     eps=module.eps, momentum=module.momentum,
                     affine=False,
                     track_running_stats=module.track_running_stats)
-            setattr(model, n, new_module)
+            return new_module
+        return module
+    return recurse_preorder(model, _replace_affines)
 
 
 def replace_layers_scale(model, scale=1):
     '''
     Replace nn.Conv2d layers with a different scale
     '''
-    prev_out_ch = 0
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_layers_scale(module,scale)
+    def _replace_layers_scale(module):
         if isinstance(module, nn.Conv2d):
             if module.in_channels == 3:
                 in_scale = 1 
@@ -68,24 +75,39 @@ def replace_layers_scale(model, scale=1):
                     stride=module.stride, padding=module.padding, 
                     groups = module.groups,
                     bias=True if module.bias is not None else False)
-            setattr(model, n, new_module)
-            prev_out_ch = new_module.out_channels
+            return new_module
         if isinstance(module, nn.BatchNorm2d):
-            new_module = nn.BatchNorm2d(prev_out_ch)
-            setattr(model, n, new_module)
+            new_module = nn.BatchNorm2d(int(module.num_features*scale),
+                    affine=module.affine)
+            return new_module
         if isinstance(module, nn.Linear):
             new_module = nn.Linear(int(module.in_features * scale), 10)
-            setattr(model, n, new_module)
+            return new_module
+        return module
+    return recurse_preorder(model, _replace_layers_scale)
 
 
+
+#used in activation cross-covariance calculation
+#input align hook
+def return_hook():
+    def hook(mod, inputs):
+        shape = inputs[0].shape
+        inputs_permute = inputs[0].permute(1,0,2,3).reshape(inputs[0].shape[1], -1)
+        reshape = (mod.input_align@inputs_permute).reshape(shape[1],
+                shape[0], shape[2],
+                shape[3]).permute(1, 0, 2, 3)
+        return reshape 
+    return hook
+
+
+
+#TODO: MUAWIZ TEST THIS
 def replace_layers_fact_with_conv(model):
     '''
     Replace FactConv2d layers with nn.Conv2d
     '''
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_layers_fact_with_conv(module)
+    def _replace_layers_fact_with_conv(module):
         if isinstance(module, FactConv2d):
             ## simple module
             new_module = nn.Conv2d(
@@ -109,19 +131,33 @@ def replace_layers_fact_with_conv(model):
                 module.weight.shape
             )
             new_sd['weight'] = composite_weight
+            if 'weight_align' in old_sd.keys():
+                new_sd['weight_align'] = old_sd['weight_align']
+                shape  = new_module.in_channels*new_module.kernel_size[0]*new_module.kernel_size[1]
+                new_module.register_buffer("weight_align",torch.zeros((shape, shape)))
+            if 'input_align' in old_sd.keys():
+                new_sd['input_align'] = old_sd['input_align']
+                out_shape = new_module.in_channels
+                new_module.register_buffer("input_align",torch.zeros((out_shape, out_shape)))
+                if module.in_channels != 3:
+                    #fact check this
+                    for key in list(module._forward_pre_hooks.keys()):
+                        del module._forward_pre_hooks[key]
+                    hook_handle_pre_forward  = new_module.register_forward_pre_hook(return_hook())
             new_module.load_state_dict(new_sd)
-            setattr(model, n, new_module)
+            new_module.to(old_sd['weight'].device)
+            #new_module.load_state_dict(new_sd)
+            return new_module
+        return module
+    return recurse_preorder(model, _replace_layers_fact_with_conv)
 
-
+#TODO: VIVIAN TEST THIS
 def turn_off_covar_grad(model, covariance):
     '''
     Turn off gradients in tri1_vec or tri2_vec to turn off
     channel or spatial covariance learning
     '''
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            turn_off_covar_grad(module, covariance)
+    def _turn_off_covar_grad(module):
         if isinstance(module, FactConv2d):
             for name, param in module.named_parameters():
                 if covariance == "channel":
@@ -130,25 +166,26 @@ def turn_off_covar_grad(model, covariance):
                 if covariance == "spatial":
                     if "tri2_vec" in name:
                         param.requires_grad = False
-
+        return module
+    return recurse_preorder(model, _turn_off_covar_grad)
+    
            
 def turn_off_backbone_grad(model):
     '''
     Turn off gradients in backbone. For tuning just classifier layer
     '''
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            turn_off_backbone_grad(module)
-        #else:
+    def _turn_off_backbone_grad(module):
         if isinstance(module, nn.Linear) and module.out_features == 10:
             grad=True
         else:
             grad=False
         for param in module.parameters():
             param.requires_grad = grad
+        return None
+    return recurse_preorder(model, _turn_off_backbone_grad)
 
 
+#TODO: VIVIAN MODIFY THIS THEN TEST IT
 def init_V1_layers(model, bias):
     '''
     Initialize every FactConv2d layer with V1-inspired

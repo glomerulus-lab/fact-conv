@@ -21,7 +21,8 @@ from pytorch_cifar_utils import progress_bar, set_seeds
 from models.resnet import ResNet18
 from conv_modules import FactConv2d
 from models.function_utils import replace_layers_factconv2d,\
-replace_layers_scale, replace_layers_fact_with_conv, turn_off_backbone_grad
+replace_layers_scale, replace_layers_fact_with_conv, turn_off_backbone_grad, \
+recurse_preorder
 
 def save_model(args, model):
     src = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/refactoring/"
@@ -103,7 +104,6 @@ print('==> Building model..')
 
 
 net=ResNet18()
-net.to(device)
 replace_layers_scale(net, args.width)
 if args.fact:
     replace_layers_factconv2d(net)
@@ -122,6 +122,7 @@ print(net_new)
 
 replace_layers_fact_with_conv(net)
 net.to(device)
+print(net)
 
 net.train()
 net_new.train()
@@ -213,8 +214,9 @@ def our_rainbow_sampling(model, new_model):
                 new_module = conv_ACA(m1, m2, new_module)
             # converts fact conv to conv. this is for sake of speed.
             #if isinstance(new_module, FactConv2d):
-            #    new_module = fact_2_conv(new_module)
-           #changes the network module
+            #    new_module = replace_layers_fact_with_conv(new_module)
+            #    #new_module = fact_2_conv(new_module)
+            # changes the network module
             setattr(new_model, n1, new_module)
 
         #only computes the ACA
