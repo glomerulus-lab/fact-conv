@@ -20,6 +20,8 @@ from distutils.util import strtobool
 from pytorch_cifar_utils import progress_bar, set_seeds
 from models.resnet import ResNet18
 from conv_modules import FactConv2d
+from models.function_utils import replace_layers_factconv2d,\
+replace_layers_scale, replace_layers_fact_with_conv, turn_off_backbone_grad
 
 def save_model(args, model):
     src = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/refactoring/"
@@ -100,98 +102,25 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 
 
-def replace_layers_agnostic(model, scale=1):
-    prev_out_ch = 0
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_layers_agnostic(module,scale)
-        if isinstance(module, nn.Conv2d):
-            if module.in_channels == 3:
-                in_scale = 1 
-            else:
-                in_scale = scale
-            ## simple module
-            new_module = nn.Conv2d(
-                    in_channels=int(module.in_channels*in_scale),
-                    out_channels=int(module.out_channels*scale),
-                    kernel_size=module.kernel_size,
-                    stride=module.stride, padding=module.padding, 
-                    groups = module.groups,
-                    bias=True if module.bias is not None else False)
-            setattr(model, n, new_module)
-            prev_out_ch = new_module.out_channels
-        if isinstance(module, nn.BatchNorm2d):
-            new_module = nn.BatchNorm2d(prev_out_ch)
-            setattr(model, n, new_module)
-        if isinstance(module, nn.Linear):
-            new_module = nn.Linear(int(512 * scale), 10)
-            setattr(model, n, new_module)
-
-
-def replace_layers(model):
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_layers(module)
-        if isinstance(module, nn.Conv2d):
-            ## simple module
-            new_module = FactConv2d(
-                    in_channels=module.in_channels,
-                    out_channels=module.out_channels,
-                    kernel_size=module.kernel_size,
-                    stride=module.stride, padding=module.padding, 
-                    bias=True if module.bias is not None else False)
-            setattr(model, n, new_module)
- 
-
-def replace_layers_fact(model):
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_layers_fact(module)
-        if isinstance(module, FactConv2d):
-            ## simple module
-            new_module = nn.Conv2d(
-                    in_channels=module.in_channels,
-                    out_channels=module.out_channels,
-                    kernel_size=module.kernel_size,
-                    stride=module.stride, padding=module.padding, 
-                    bias=True if module.bias is not None else False)
-            old_sd = module.state_dict()
-            new_sd = new_module.state_dict()
-            if module.bias is not None:
-                new_sd['bias'] = old_sd['bias']
-            U1 = module._tri_vec_to_mat(module.tri1_vec, module.in_channels //
-                module.groups,module.scat_idx1)
-            U2 = module._tri_vec_to_mat(module.tri2_vec, module.kernel_size[0] * module.kernel_size[1],
-                    module.scat_idx2)
-            U = torch.kron(U1, U2) 
-            matrix_shape = (module.out_channels, module.in_features)
-            composite_weight = torch.reshape(
-                torch.reshape(module.weight, matrix_shape) @ U,
-                module.weight.shape
-            )
-            new_sd['weight'] = composite_weight
-            new_module.load_state_dict(new_sd)
-            setattr(model, n, new_module)
-
-
 net=ResNet18()
 net.to(device)
-replace_layers_agnostic(net, args.width)
+replace_layers_scale(net, args.width)
 if args.fact:
-    replace_layers(net)
+    replace_layers_factconv2d(net)
+
+
 if args.fact:
     sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/fact_model.pt".format(args.width))
 elif not args.fact:
     sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/conv_model.pt".format(args.width))
 net.load_state_dict(sd)
 net.to(device)
+
 net_new = copy.deepcopy(net)
 net_new.to(device)
 print(net_new)
-replace_layers_fact(net)
+
+replace_layers_fact_with_conv(net)
 net.to(device)
 
 net.train()
@@ -639,20 +568,6 @@ def fact_2_conv(new_module):
     print("FACT REPLACEMENT:", new_module)
     return new_module
  
-           
-def turn_off_grads(model):
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            turn_off_grads(module)
-        else:
-            if isinstance(module, nn.Linear) and module.out_features == 10:
-                grad=True
-            else:
-                grad=False
-            for param in module.parameters():
-                param.requires_grad = grad
-
 
 def train(epoch, net):
     print('\nEpoch: %d' % epoch)
@@ -712,7 +627,7 @@ for batch_idx, (inputs, targets) in enumerate(trainloader):
     inputs, targets = inputs.to(device), targets.to(device)
     outputs = net_new(inputs)
 print("TOTAL TIME:", time.time()-s)
-turn_off_grads(net_new)
+turn_off_backbone_grad(net_new)
 optimizer = optim.SGD(filter(lambda param: param.requires_grad, net_new.parameters()), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
 print("testing {} sampling at width {}".format(args.sampling, args.width))
@@ -745,7 +660,7 @@ logger ={"pretrained_acc": pretrained_acc, "sampled_acc": sampled_acc,
 wandb_dir = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
-group_name = "refactor"
+group_string = "refactor"
 run = wandb.init(project="random_project", config=args,
         group=group_string, name=run_name, dir=wandb_dir)
 run.log(logger)
