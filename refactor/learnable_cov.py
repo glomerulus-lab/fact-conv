@@ -1,9 +1,5 @@
 import torch
 from torch import Tensor
-import torch.nn as nn
-from torch.nn.parameter import Parameter, UninitializedParameter
-from torch.nn.common_types import _size_2_t
-from typing import Optional, List, Tuple, Union
 import numpy as np
 import numpy.linalg as la
 from scipy.spatial.distance import pdist, squareform
@@ -54,6 +50,7 @@ def V1_covariance_matrix(dim, size, spatial_freq, center, scale=1):
         + 1e-5 * np.eye(dim[0] * dim[1])
     C *= scale * dim[0] * dim[1] / np.trace(C)
     return C
+
 
 def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):

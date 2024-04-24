@@ -32,8 +32,7 @@ parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
-parser.add_argument('--net', type=str, default='resnet18', #choices=['resnet18','resnet18-fact'],
-    help="which model to use")
+parser.add_argument('--net', type=str, default='resnet18', help="which model to use")
 parser.add_argument('--num_epochs', type=int, default=200, help='number of trainepochs')
 parser.add_argument('--name', type=str, default='TESTING_VGG', 
                         help='filename for saved model')
