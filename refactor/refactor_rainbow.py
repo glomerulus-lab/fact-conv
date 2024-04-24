@@ -521,56 +521,6 @@ def colored_Covariance_Specification(m1, m2, new_module, Un=None, Sn=None, Vn=No
     return new_module
 
 
-def fact_2_conv(new_module):
-    ## simple module
-    print("Replacing FactConv")
-    fact_module = nn.Conv2d(
-            in_channels=new_module.in_channels,
-            out_channels=new_module.out_channels,
-            kernel_size=new_module.kernel_size,
-            stride=new_module.stride, padding=new_module.padding, 
-            bias=True if new_module.bias is not None else False)
-
-    old_sd = new_module.state_dict()
-    new_sd = fact_module.state_dict()
-
-    if new_module.bias is not None:
-        new_sd['bias'] = old_sd['bias']
-
-    U1 = new_module._tri_vec_to_mat(new_module.tri1_vec, new_module.in_channels //
-        new_module.groups, new_module.scat_idx1)
-    U2 = new_module._tri_vec_to_mat(new_module.tri2_vec,
-            new_module.kernel_size[0] * new_module.kernel_size[1],
-            new_module.scat_idx2)
-    U = torch.kron(U1, U2) 
-
-    matrix_shape = (new_module.out_channels, new_module.in_features)
-    composite_weight = torch.reshape(
-        torch.reshape(new_module.weight, matrix_shape) @ U,
-        new_module.weight.shape
-    )
-
-    new_sd['weight'] = composite_weight
-    if 'weight_align' in old_sd.keys():
-        new_sd['weight_align'] = old_sd['weight_align']
-        shape  = fact_module.in_channels*fact_module.kernel_size[0]*fact_module.kernel_size[1]
-        fact_module.register_buffer("weight_align",torch.zeros((shape, shape)))
-    if 'input_align' in old_sd.keys():
-        new_sd['input_align'] = old_sd['input_align']
-        out_shape = fact_module.in_channels
-        fact_module.register_buffer("input_align",torch.zeros((out_shape, out_shape)))
-        if new_module.in_channels != 3:
-            #fact check this
-            for key in list(new_module._forward_pre_hooks.keys()):
-                del new_module._forward_pre_hooks[key]
-            hook_handle_pre_forward  = fact_module.register_forward_pre_hook(return_hook())
-    fact_module.load_state_dict(new_sd)
-    fact_module.to(device)
-    new_module = fact_module
-    print("FACT REPLACEMENT:", new_module)
-    return new_module
- 
-
 def train(epoch, net):
     print('\nEpoch: %d' % epoch)
     net.train()
