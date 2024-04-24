@@ -38,7 +38,6 @@ def replace_layers_factconv2d(model):
     return recurse_preorder(model, _replace_layers_factconv2d)
 
 
-#TODO: VIVIAN TEST THIS
 def replace_affines(model):
     '''
     Set BatchNorm2d layers to have 'affine=False'
@@ -145,7 +144,6 @@ def replace_layers_fact_with_conv(model):
     return recurse_preorder(model, _replace_layers_fact_with_conv)
 
 
-#TODO: VIVIAN TEST THIS
 def turn_off_covar_grad(model, covariance):
     '''
     Turn off gradients in tri1_vec or tri2_vec to turn off
@@ -177,24 +175,20 @@ def turn_off_backbone_grad(model):
     return recurse_preorder(model, _turn_off_backbone_grad)
 
 
-#TODO: VIVIAN MODIFY THIS THEN TEST IT
 def init_V1_layers(model, bias):
     '''
     Initialize every FactConv2d layer with V1-inspired
     spatial weight init
     '''
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            init_V1_layers(module, bias)
+    def _init_V1_layers(module):
         if isinstance(module, FactConv2d):
             center = ((module.kernel_size[0] - 1) / 2, (module.kernel_size[1] - 1) / 2)
             V1_init(module, size=2, spatial_freq=0.1, scale=1, center=center)
             for name, param in module.named_parameters():
                 if "weight" in name:
                     param.requires_grad = False
-
                 if bias:
                     if "bias" in name:
                             param.requires_grad = False
+    return recurse_preorder(model, _init_V1_layers)
 
