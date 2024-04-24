@@ -39,8 +39,6 @@ parser.add_argument('--epochs', default=10, type=int, help='number of epochs')
 parser.add_argument('--seed', default=1, type=int, help='seed')
 parser.add_argument('--name', type=str, default='TESTING_VGG', 
                         help='filename for saved model')
-parser.add_argument('--affine', type=lambda x: bool(strtobool(x)), 
-                        default=True, help='Batch Norm affine True or False')
 parser.add_argument('--aca', type=lambda x: bool(strtobool(x)), 
                         default=True, help='Activation Cross-Covariance Alignment')
 parser.add_argument('--wa', type=lambda x: bool(strtobool(x)), 
@@ -131,21 +129,6 @@ def replace_layers_agnostic(model, scale=1):
             setattr(model, n, new_module)
 
 
-def replace_affines(model):
-    for n, module in model.named_children():
-        if len(list(module.children())) > 0:
-            ## compound module, go inside it
-            replace_affines(module)
-        if isinstance(module, nn.BatchNorm2d):
-            ## simple module
-            new_module = nn.BatchNorm2d(
-                    num_features=module.num_features,
-                    eps=module.eps, momentum=module.momentum,
-                    affine=False,
-                    track_running_stats=module.track_running_stats)
-            setattr(model, n, new_module)
-
-
 def replace_layers(model):
     for n, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -199,11 +182,9 @@ net.to(device)
 replace_layers_agnostic(net, args.width)
 if args.fact:
     replace_layers(net)
-#if not args.affine:
-#    replace_affines(net)
-if args.fact and args.affine:
+if args.fact:
     sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/fact_model.pt".format(args.width))
-elif not args.fact and args.affine:
+elif not args.fact:
     sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/conv_model.pt".format(args.width))
 net.load_state_dict(sd)
 net.to(device)
