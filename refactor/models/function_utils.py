@@ -35,7 +35,6 @@ def replace_layers_factconv2d(model):
                 new_sd['bias'] = old_sd['bias']
             new_module.load_state_dict(new_sd)
             return new_module
-        return module
     return recurse_preorder(model, _replace_layers_factconv2d)
 
 
@@ -53,7 +52,6 @@ def replace_affines(model):
                     affine=False,
                     track_running_stats=module.track_running_stats)
             return new_module
-        return module
     return recurse_preorder(model, _replace_affines)
 
 
@@ -83,7 +81,6 @@ def replace_layers_scale(model, scale=1):
         if isinstance(module, nn.Linear):
             new_module = nn.Linear(int(module.in_features * scale), 10)
             return new_module
-        return module
     return recurse_preorder(model, _replace_layers_scale)
 
 
@@ -101,8 +98,6 @@ def return_hook():
     return hook
 
 
-
-#TODO: MUAWIZ TEST THIS
 def replace_layers_fact_with_conv(model):
     '''
     Replace FactConv2d layers with nn.Conv2d
@@ -146,10 +141,9 @@ def replace_layers_fact_with_conv(model):
                     hook_handle_pre_forward  = new_module.register_forward_pre_hook(return_hook())
             new_module.load_state_dict(new_sd)
             new_module.to(old_sd['weight'].device)
-            #new_module.load_state_dict(new_sd)
             return new_module
-        return module
     return recurse_preorder(model, _replace_layers_fact_with_conv)
+
 
 #TODO: VIVIAN TEST THIS
 def turn_off_covar_grad(model, covariance):
@@ -166,7 +160,6 @@ def turn_off_covar_grad(model, covariance):
                 if covariance == "spatial":
                     if "tri2_vec" in name:
                         param.requires_grad = False
-        return module
     return recurse_preorder(model, _turn_off_covar_grad)
     
            
@@ -181,7 +174,6 @@ def turn_off_backbone_grad(model):
             grad=False
         for param in module.parameters():
             param.requires_grad = grad
-        return None
     return recurse_preorder(model, _turn_off_backbone_grad)
 
 
