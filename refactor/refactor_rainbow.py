@@ -4,26 +4,24 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
-from torch.profiler import profile, record_function, ProfilerActivity
 import torchvision
 import torchvision.transforms as transforms
+
+import wandb
+import numpy as np
+
 import time 
 import os
 import argparse
 import copy
+import gc
+from distutils.util import strtobool
 
 from pytorch_cifar_utils import progress_bar, set_seeds
-import wandb
-from distutils.util import strtobool
 from models.resnet import ResNet18
-import numpy as np
-import gc
-#torch.backends.cudnn.allow_tf32 = True
-#torch.backends.cuda.matmul.allow_tf32 = True
-#torch.backends.cuda.preferred_linalg_library('magma')
-    
+from conv_modules import FactConv2d
+
 def save_model(args, model):
-    #assert False
     src = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/refactoring/"
     model_dir =  src + args.name
     os.makedirs(model_dir, exist_ok=True)
@@ -38,6 +36,7 @@ def save_model(args, model):
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--epochs', default=10, type=int, help='number of epochs')
+parser.add_argument('--seed', default=1, type=int, help='seed')
 parser.add_argument('--name', type=str, default='TESTING_VGG', 
                         help='filename for saved model')
 parser.add_argument('--affine', type=lambda x: bool(strtobool(x)), 
@@ -53,7 +52,9 @@ parser.add_argument('--fact', type=lambda x: bool(strtobool(x)),
 parser.add_argument('--width', default=0.125, type=float, help='width')
 parser.add_argument('--sampling', type=str, default='ours',
         choices=['ours', 'theirs'], help="which sampling to use")
+
 args = parser.parse_args()
+
 if args.width == 1.0:
     args.width = 1
 if args.width == 2.0:
@@ -62,6 +63,7 @@ if args.width == 4.0:
     args.width = 4
 if args.width == 8.0:
     args.width = 8
+
 print("Sampling: {} Width: {} Fact: {} ACA: {} WA: {} In_WA: {}".format(args.sampling,
     args.width, args.fact, args.aca, args.wa, args.in_wa))
 
@@ -84,7 +86,7 @@ transform_test = transforms.Compose([
 ])
 
 trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)#transform_train)
+    root='./data', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=128, shuffle=True, num_workers=4, drop_last=True)
 
@@ -98,7 +100,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 
 # Model
 print('==> Building model..')
-from conv_modules import FactConv2d
+
 
 def replace_layers_agnostic(model, scale=1):
     prev_out_ch = 0
@@ -128,6 +130,7 @@ def replace_layers_agnostic(model, scale=1):
             new_module = nn.Linear(int(512 * scale), 10)
             setattr(model, n, new_module)
 
+
 def replace_affines(model):
     for n, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -141,6 +144,8 @@ def replace_affines(model):
                     affine=False,
                     track_running_stats=module.track_running_stats)
             setattr(model, n, new_module)
+
+
 def replace_layers(model):
     for n, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -156,6 +161,7 @@ def replace_layers(model):
                     bias=True if module.bias is not None else False)
             setattr(model, n, new_module)
  
+
 def replace_layers_fact(model):
     for n, module in model.named_children():
         if len(list(module.children())) > 0:
@@ -171,7 +177,6 @@ def replace_layers_fact(model):
                     bias=True if module.bias is not None else False)
             old_sd = module.state_dict()
             new_sd = new_module.state_dict()
-            #new_sd['weight'] = old_sd['weight']
             if module.bias is not None:
                 new_sd['bias'] = old_sd['bias']
             U1 = module._tri_vec_to_mat(module.tri1_vec, module.in_channels //
@@ -184,7 +189,6 @@ def replace_layers_fact(model):
                 torch.reshape(module.weight, matrix_shape) @ U,
                 module.weight.shape
             )
-            #output = self._conv_forward(input, composite_weight, self.bias)
             new_sd['weight'] = composite_weight
             new_module.load_state_dict(new_sd)
             setattr(model, n, new_module)
@@ -197,21 +201,10 @@ if args.fact:
     replace_layers(net)
 #if not args.affine:
 #    replace_affines(net)
-#sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/three-layer-models-sequential/TESTING_3Layer_final/{}_model.pt".format("fact" if args.fact else "conv"))
 if args.fact and args.affine:
-    if args.width == 8:
-        sd=torch.load("/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/width_8/8scale_final/fact_model.pt")
-    else:
-        sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/fact_model.pt".format(args.width))
+    sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/fact_model.pt".format(args.width))
 elif not args.fact and args.affine:
-    if args.width == 8:
-        sd=torch.load("/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/width_8/8scale_final/conv_model.pt")
-    else:
-        sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/conv_model.pt".format(args.width))
-elif args.fact and not args.affine:
-    sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_2/{}scale_final/fact_model.pt".format(args.width))
-elif not args.fact and not args.affine:
-    sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_2/{}scale_final/conv_model.pt".format(args.width))
+    sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/conv_model.pt".format(args.width))
 net.load_state_dict(sd)
 net.to(device)
 net_new = copy.deepcopy(net)
@@ -223,15 +216,19 @@ net.to(device)
 net.train()
 net_new.train()
 
+set_seeds(args.seed)
+criterion = nn.CrossEntropyLoss()
+
+
 #traditional way of calculating svd. can be a bit unstable sometimes tho
 def calc_svd(A, name=''):
     u, s, vh = torch.linalg.svd(
                    A, full_matrices=False,
-               # driver="gesvd"
             )  # (C_in_reference, R), (R,), (R, C_in_generated)
     alignment = u  @ vh  # (C_in_reference, C_in_generated)
     return alignment
  
+
 #i've been finding this way of calculating svd to be more stable. 
 def calc_svd_eigh(A, name=''):
     A_T_A = A.T@A 
@@ -244,6 +241,7 @@ def calc_svd_eigh(A, name=''):
     alignment  = Un @ Vn
     return alignment
  
+
 #used in activation cross-covariance calculation
 #input align hook
 def return_hook():
@@ -275,7 +273,6 @@ def our_rainbow_sampling(model, new_model):
         if len(list(m1.children())) > 0:
             our_rainbow_sampling(m1, m2)
         if isinstance(m1, nn.Conv2d):
-            print("conv")
             if isinstance(m2, FactConv2d):
                 new_module = FactConv2d(
                     in_channels=m2.in_channels,
@@ -321,7 +318,6 @@ def our_rainbow_sampling(model, new_model):
 
 def weight_Alignment(m1, m2, new_module, in_dim=True):
     # reference model state dict
-    print("we go here")
     ref_sd = m1.state_dict()
     # generated model state dict - uses reference model weights. for now
     gen_sd = m2.state_dict()
@@ -329,7 +325,6 @@ def weight_Alignment(m1, m2, new_module, in_dim=True):
     # module with random init - to be loaded to model
     loading_sd = new_module.state_dict()
     new_gaussian = loading_sd['weight']
-    print(new_gaussian.shape)
     
     # carry over old bias. only matters when we work with no batchnorm networks
     if m1.bias is not None:
@@ -338,6 +333,7 @@ def weight_Alignment(m1, m2, new_module, in_dim=True):
     if "tri1_vec" in gen_sd.keys():
         loading_sd['tri1_vec']=gen_sd['tri1_vec']
         loading_sd['tri2_vec']=gen_sd['tri2_vec']
+
     #this is the spot where
     # we can do weight alignment
     #   for fact net, this means aligning with the random noise
@@ -356,14 +352,12 @@ def weight_Alignment(m1, m2, new_module, in_dim=True):
     reference_weight = reference_weight.reshape(reference_weight.shape[0], -1)
     generated_weight = generated_weight.reshape(generated_weight.shape[0], -1)
     #compute transpose, giving indim*spatial x outdim
-    #generated_weight = generated_weight.T
     
     #compute weight cross-covariance indim*spatial x indim*spatial
     #TODO REFACTOR TO HAVE REF FIRST. OUTDIM x OUTDIM 
     if in_dim:
-        print("Input Alignment")
+        print("Input Weight Alignment")
         weight_cov = (generated_weight.T@reference_weight)
-        #weight_cov = (reference_weight@generated_weight.T)
         alignment = calc_svd(weight_cov, name="Weight alignment")
         
         # outdim x indim x spatial
@@ -372,12 +366,9 @@ def weight_Alignment(m1, m2, new_module, in_dim=True):
         final_gen_weight = final_gen_weight.reshape(final_gen_weight.shape[0], -1)
         # outdim x indim*spatial
         final_gen_weight = final_gen_weight@alignment
-        #final_gen_weight = alignment@final_gen_weight
-        # outdim x indim x spatial
     else:
-        print("Output Alignment")
+        print("Output Weight Alignment")
         weight_cov = (reference_weight@generated_weight.T)
-        #weight_cov = (reference_weight@generated_weight.T)
         alignment = calc_svd(weight_cov, name="Weight alignment")
         
         # outdim x indim x spatial
@@ -386,8 +377,7 @@ def weight_Alignment(m1, m2, new_module, in_dim=True):
         final_gen_weight = final_gen_weight.reshape(final_gen_weight.shape[0], -1)
         # outdim x indim*spatial
         final_gen_weight = alignment@final_gen_weight
-        #final_gen_weight = alignment@final_gen_weight
-        # outdim x indim x spatial
+
     loading_sd['weight'] = final_gen_weight.reshape(ref_sd['weight'].shape)
     loading_sd['weight_align'] = alignment
     new_module.register_buffer("weight_align", alignment)
@@ -395,21 +385,16 @@ def weight_Alignment(m1, m2, new_module, in_dim=True):
     return new_module
  
 
-
-
 def conv_ACA(m1, m2, new_module):
+    print("Convolutional Input Activations Alignment")
     activation = []
     other_activation = []
-    print("in convACA")
-    
     # this hook grabs the input activations of the conv layer
     # rearanges the vector so that the width by height dim is 
     # additional samples to the covariance
     # bwh x c
     def define_hook(m):
         def store_hook(mod, inputs, outputs):
-            #inputs[0] = b x c x w x h
-            #inputs[0].permute(0,2,3,1).reshape(-1, inputs[0].shape[1]))
             #from bonner lab tutorial
             x = inputs[0]
             x = x.permute(0, 2, 3, 1)
@@ -418,12 +403,10 @@ def conv_ACA(m1, m2, new_module):
             raise Exception("Done")
         return store_hook
     
-    print(m1)
-    print(m2)
-    
     hook_handle_1 = m1.register_forward_hook(define_hook(m1))
     hook_handle_2 = m2.register_forward_hook(define_hook(m2))
     
+    print("Starting Sample Cross-Covariance Calculation")
     covar = None
     total = 0
     for batch_idx, (inputs, targets) in enumerate(trainloader):
@@ -447,22 +430,23 @@ def conv_ACA(m1, m2, new_module):
             assert (covar.isfinite().all())
         activation = []
         other_activation = []
+
     #c x c
     covar /= total
     hook_handle_1.remove()
     hook_handle_2.remove()
-    print("done with covariance_calc")
+    print("Sample Cross-Covariance Calculation finished")
     align = calc_svd(covar, name="Cross-Covariance")
     new_module.register_buffer("input_align", align)
+
     # this hook takes the input to the conv, aligns, then returns
     # to the conv the aligned inputs
     hook_handle_pre_forward  = new_module.register_forward_pre_hook(return_hook())
     return new_module
 
 
-
 def linear_ACA(m1, m2, new_model):
-    print("linear")
+    print("Linear Input Activations Alignment")
     new_module = nn.Linear(m1.in_features, m1.out_features, bias=True
             if m1.bias is not None else False).to(device)
     ref_sd = m1.state_dict()
@@ -480,7 +464,7 @@ def linear_ACA(m1, m2, new_model):
             other_activation.append(inputs[0]))
     covar = None
     total = 0
-    print("starting covariance_calc")
+    print("Starting Sample Cross-Covariance Calculation")
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         outputs1 = net(inputs)
@@ -493,11 +477,11 @@ def linear_ACA(m1, m2, new_model):
         activation = []
         other_activation = []
     covar /= total
-    #print("done with covariance_calc")
     
     hook_handle_1.remove()
     hook_handle_2.remove()
     
+    print("Sample Cross-Covariance Calculation finished")
     align = calc_svd(covar, name="Cross-Covariance")
     new_weight = loading_sd['weight']
     new_weight = torch.moveaxis(new_weight, source=1,
@@ -510,7 +494,7 @@ def linear_ACA(m1, m2, new_model):
 
 
 def batchNorm_stats_recalc(m1, m2):
-    print("BatchieNormie")
+    print("Calculating Batch Statistics")
     m1.train()
     m2.train()
     m1.reset_running_stats()
@@ -533,6 +517,8 @@ def batchNorm_stats_recalc(m1, m2):
     handle_2.remove()
     m1.eval()
     m2.eval()
+    print("Batch Statistics Calculation Finished")
+
 
 def weight_Alignment_With_CC(m1, m2, new_module, Un=None, Sn=None, Vn=None):
     print("NOT SUPPOSED TO BE HERE")
@@ -552,6 +538,7 @@ def weight_Alignment_With_CC(m1, m2, new_module, Un=None, Sn=None, Vn=None):
     if "tri1_vec" in gen_sd.keys():
         loading_sd['tri1_vec']=gen_sd['tri1_vec']
         loading_sd['tri2_vec']=gen_sd['tri2_vec']
+
     old_weight = ref_sd['weight']
     A = old_weight.reshape(old_weight.shape[0], -1)
     A_T_A = A.T@A 
@@ -563,11 +550,13 @@ def weight_Alignment_With_CC(m1, m2, new_module, Un=None, Sn=None, Vn=None):
     Sn_inv = (1/Sn).diag()
     Un = A @ Vn.T @ Sn_inv 
     white_gaussian = torch.randn_like(Un)
+
     copy_weight = Un 
     copy_weight_gen = white_gaussian
     copy_weight = copy_weight.reshape(copy_weight.shape[0], -1)
     copy_weight_gen = copy_weight_gen.reshape(copy_weight_gen.shape[0], -1).T
     weight_cov = (copy_weight_gen@copy_weight)
+
     alignment = calc_svd(weight_cov, name="Weight")
     new_weight = white_gaussian  
     new_weight = new_weight.reshape(new_weight.shape[0], -1)
@@ -575,11 +564,12 @@ def weight_Alignment_With_CC(m1, m2, new_module, Un=None, Sn=None, Vn=None):
 
     new_module.register_buffer("weight_align", alignment)
     loading_sd['weight_align'] = alignment
-    colored_gaussian = white_gaussian @ (Sn[:,None]* Vn)#(Sn[:,None]* Vn)
+    colored_gaussian = white_gaussian @ (Sn[:,None]* Vn)
     loading_sd['weight'] = colored_gaussian.reshape(old_weight.shape)
     new_module.load_state_dict(loading_sd)
     return new_module
- 
+
+
 # this function does not do an explicit specification of the colored covariance
 @torch.no_grad()
 def colored_Covariance_Specification(m1, m2, new_module, Un=None, Sn=None, Vn=None):
@@ -600,6 +590,7 @@ def colored_Covariance_Specification(m1, m2, new_module, Un=None, Sn=None, Vn=No
     if "tri1_vec" in gen_sd.keys():
         loading_sd['tri1_vec']=gen_sd['tri1_vec']
         loading_sd['tri2_vec']=gen_sd['tri2_vec']
+
     old_weight = ref_sd['weight']
     A = old_weight.reshape(old_weight.shape[0], -1)
     A_T_A = A.T@A 
@@ -611,14 +602,16 @@ def colored_Covariance_Specification(m1, m2, new_module, Un=None, Sn=None, Vn=No
     Sn_inv = (1/Sn).diag()
     Un = A @ Vn.T @ Sn_inv 
     white_gaussian = torch.randn_like(Un)
-    colored_gaussian = white_gaussian @ (Sn[:,None]* Vn)#(Sn[:,None]* Vn)
+
+    colored_gaussian = white_gaussian @ (Sn[:,None]* Vn)
     loading_sd['weight'] = colored_gaussian.reshape(old_weight.shape)
     new_module.load_state_dict(loading_sd)
     return new_module
- 
+
+
 def fact_2_conv(new_module):
     ## simple module
-    print("TESTING FACT REPLACEMENT")
+    print("Replacing FactConv")
     fact_module = nn.Conv2d(
             in_channels=new_module.in_channels,
             out_channels=new_module.out_channels,
@@ -628,19 +621,23 @@ def fact_2_conv(new_module):
 
     old_sd = new_module.state_dict()
     new_sd = fact_module.state_dict()
+
     if new_module.bias is not None:
         new_sd['bias'] = old_sd['bias']
+
     U1 = new_module._tri_vec_to_mat(new_module.tri1_vec, new_module.in_channels //
         new_module.groups, new_module.scat_idx1)
     U2 = new_module._tri_vec_to_mat(new_module.tri2_vec,
             new_module.kernel_size[0] * new_module.kernel_size[1],
             new_module.scat_idx2)
     U = torch.kron(U1, U2) 
+
     matrix_shape = (new_module.out_channels, new_module.in_features)
     composite_weight = torch.reshape(
         torch.reshape(new_module.weight, matrix_shape) @ U,
         new_module.weight.shape
     )
+
     new_sd['weight'] = composite_weight
     if 'weight_align' in old_sd.keys():
         new_sd['weight_align'] = old_sd['weight_align']
@@ -675,9 +672,7 @@ def turn_off_grads(model):
             for param in module.parameters():
                 param.requires_grad = grad
 
-set_seeds(1)
-#net=VGG("VGG11", args.bn_on)
-criterion = nn.CrossEntropyLoss()
+
 def train(epoch, net):
     print('\nEpoch: %d' % epoch)
     net.train()
@@ -719,52 +714,34 @@ def test(epoch, net):
 
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
-
-
     # Save checkpoint.
     acc = 100.*correct/total
     print("accuracy:", acc)
     return acc, test_loss
-    #run.log({"accuracy":acc})
+
 
 print("testing Res{}Net18 with width of {}".format("Fact" if args.fact else "Conv", args.width))
 pretrained_acc, og_loss = test(0, net)
 
-set_seeds(1)
+set_seeds(args.seed)
 s=time.time()
 our_rainbow_sampling(net, net_new)
 net_new.train()
 for batch_idx, (inputs, targets) in enumerate(trainloader):
     inputs, targets = inputs.to(device), targets.to(device)
     outputs = net_new(inputs)
-run_name= "eigh_final_{}_Res{}Net18_Width_{}_{}_affine_ACA_{}_WA_{}_InputWA_{}".format(args.sampling.capitalize(), "Fact"
-        if args.fact else "Conv", str(args.width), "No" if not args.affine else
-        "Yes", "On" if args.aca else "Off", "On" if args.wa else "Off",
-        args.in_wa)
-
-
 print("TOTAL TIME:", time.time()-s)
 turn_off_grads(net_new)
-##
-##
-## 
-#
 optimizer = optim.SGD(filter(lambda param: param.requires_grad, net_new.parameters()), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
-#print("testing rainbow sampling")
 print("testing {} sampling at width {}".format(args.sampling, args.width))
 net_new.eval()
 
-#run_name= "correctly_saved_network_{}_Res{}Net18_Width_{}_{}_affine".format(args.sampling.capitalize(), "Fact"
-#        if args.fact else "Conv", str(args.width), "No" if not args.affine else
-#        "Yes")
-#
 run_name = "refactor"
 args.name = run_name
 print(net_new)
+
 sampled_acc, sampled_loss = test(0, net_new)
-#assert False
-#print("training rainbow sampling classifier head for 10 epochs")
 save_model(args, net_new)
 accs = []
 test_losses= []
@@ -776,6 +753,7 @@ for i in range(0, args.epochs):
     acc, loss_test =test(i, net_new)
     test_losses.append(loss_test)
     accs.append(acc)
+
 logger ={"pretrained_acc": pretrained_acc, "sampled_acc": sampled_acc,
         "first_epoch_acc":accs[0], "third_epoch_acc": accs[2],
         "tenth_epoch_acc":accs[args.epochs-1], 'width':args.width,
@@ -783,19 +761,13 @@ logger ={"pretrained_acc": pretrained_acc, "sampled_acc": sampled_acc,
         "first_epoch_loss":test_losses[0], "third_epoch_loss": test_losses[2],
         "tenth_epoch_loss":test_losses[args.epochs-1], 'width':args.width}
 
-
 wandb_dir = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
-group_string = "eigh_final_iclr_ACA_{}_WA_{}_{}_{}_rainbow_sampling".format("On" if
-        args.aca else "Off", "Input" if args.in_wa else "Output", "On" if
-        args.wa else "Off", "Fact" if args.fact else "Conv")
 group_name = "refactor"
 run = wandb.init(project="random_project", config=args,
         group=group_string, name=run_name, dir=wandb_dir)
 run.log(logger)
 
-
 args.name += "_trained_classifier_head"
 save_model(args, net_new)
-#wandb.watch(net, log='all', log_freq=1)
