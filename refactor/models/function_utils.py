@@ -15,47 +15,27 @@ def recurse_preorder(model, callback):
     return model
 
 
-def recurse_preorder_v2(callback):
-    def _preorder_recursive_invoker(model):
-        r = callback(model)
-        if r is not model and r is not None:
-            return r
-        for n, module in model.named_children():
-            r = _preorder_recursive_invoker(module)
-            if r is not module and r is not None:
-                setattr(model, n, r)
-        return model
-    return _preorder_recursive_invoker
-
-
-def ifisinstance(klass):
-    def _make_conditional(callback):
-        def _conditional_invoker(model):
-            if isinstance(model, klass):
-                return callback(model)
-        return _conditional_invoker
-    return _make_conditional
-
-
-@recurse_preorder_v2
-@ifisinstance(nn.Conv2d)
-def replace_layers_factconv2d(module):
+def replace_layers_factconv2d(model):
     '''
     Replace nn.Conv2d layers with FactConv2d
     '''
-    new_module = FactConv2d(
-            in_channels=module.in_channels,
-            out_channels=module.out_channels,
-            kernel_size=module.kernel_size,
-            stride=module.stride, padding=module.padding, 
-            bias=True if module.bias is not None else False)
-    old_sd = module.state_dict()
-    new_sd = new_module.state_dict()
-    new_sd['weight'] = old_sd['weight']
-    if module.bias is not None:
-        new_sd['bias'] = old_sd['bias']
-    new_module.load_state_dict(new_sd)
-    return new_module
+    def _replace_layers_factconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = FactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            return new_module
+    return recurse_preorder(model, _replace_layers_factconv2d)
 
 
 def replace_affines(model):
@@ -64,6 +44,7 @@ def replace_affines(model):
     '''
     def _replace_affines(module):
         if isinstance(module, nn.BatchNorm2d):
+            ## simple module
             new_module = nn.BatchNorm2d(
                     num_features=module.num_features,
                     eps=module.eps, momentum=module.momentum,
@@ -73,58 +54,35 @@ def replace_affines(model):
     return recurse_preorder(model, _replace_affines)
 
 
-def replace_layers_conv_scale(scale):
-    @ifisinstance(nn.Conv2d)
-    def _replace_layers_conv_scale(module):
-        if module.in_channels == 3:
-            in_scale = 1 
-        else:
-            in_scale = scale
-        new_module = nn.Conv2d(
-                in_channels=int(module.in_channels*in_scale),
-                out_channels=int(module.out_channels*scale),
-                kernel_size=module.kernel_size,
-                stride=module.stride, padding=module.padding, 
-                groups = module.groups,
-                bias=True if module.bias is not None else False)
-        return new_module
-    return _replace_layers_conv_scale
-
-
-def replace_layers_bn_scale(scale):
-    @ifisinstance(nn.BatchNorm2d)
-    def _replace_layers_bn_scale(module):
-        new_module = nn.BatchNorm2d(int(module.num_features*scale), affine=module.affine)
-        return new_module
-    return _replace_layers_bn_scale
-
-
-def replace_layers_linear_scale(scale):
-    @ifisinstance(nn.Linear)
-    def _replace_layers_linear_scale(module):
-        new_module = nn.Linear(int(module.in_features * scale), 10)
-        return new_module
-    return _replace_layers_linear_scale
-
-
-
 def replace_layers_scale(model, scale=1):
     '''
     Replace nn.Conv2d layers with a different scale
     '''
-    callback_list = [replace_layers_conv_scale(scale),
-            replace_layers_bn_scale(scale), replace_layers_linear_scale(scale)]
+    def _replace_layers_scale(module):
+        if isinstance(module, nn.Conv2d):
+            if module.in_channels == 3:
+                in_scale = 1 
+            else:
+                in_scale = scale
+            ## simple module
+            new_module = nn.Conv2d(
+                    in_channels=int(module.in_channels*in_scale),
+                    out_channels=int(module.out_channels*scale),
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    groups = module.groups,
+                    bias=True if module.bias is not None else False)
+            return new_module
+        if isinstance(module, nn.BatchNorm2d):
+            new_module = nn.BatchNorm2d(int(module.num_features*scale),
+                    affine=module.affine)
+            return new_module
+        if isinstance(module, nn.Linear):
+            new_module = nn.Linear(int(module.in_features * scale), 10)
+            return new_module
+    return recurse_preorder(model, _replace_layers_scale)
 
-    @recurse_preorder_v2
-    def _replace_layers_scale(model):
-        for callback in callback_list:
-            r = callback(model)
-            if r is not None and r is not model:
-                return r
-        return model
 
-    return _replace_layers_scale(model)
-    
 
 #used in activation cross-covariance calculation
 #input align hook
