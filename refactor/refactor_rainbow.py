@@ -121,7 +121,7 @@ net_new = copy.deepcopy(net)
 net_new.to(device)
 print(net_new)
 
-replace_layers_fact_with_conv(net)
+#replace_layers_fact_with_conv(net)
 net.to(device)
 print(net)
 
@@ -182,41 +182,40 @@ print("testing Res{}Net18 with width of {}".format("Fact" if args.fact else "Con
 pretrained_acc, og_loss = test(0, net)
 
 set_seeds(args.seed)
-s=time.time()
-   
-    
-rainbow = rainbow_sampler(net, net_new, args, device, trainloader)
-rainbow.do_rainbow_sampling()#rainbow.net, rainbow.net_new)
-
-net_new = rainbow.net_new
-net_new.train()
-
-for batch_idx, (inputs, targets) in enumerate(trainloader):
-    inputs, targets = inputs.to(device), targets.to(device)
-    outputs = net_new(inputs)
-print("TOTAL TIME:", time.time()-s)
-turn_off_backbone_grad(net_new)
-optimizer = optim.SGD(filter(lambda param: param.requires_grad, net_new.parameters()), lr=args.lr,
-                      momentum=0.9, weight_decay=5e-4)
-print("testing {} sampling at width {}".format(args.sampling, args.width))
-net_new.eval()
-
-run_name = "refactor"
-args.name = run_name
-print(net_new)
-
-sampled_acc, sampled_loss = test(0, net_new)
-save_model(args, net_new)
-accs = []
-test_losses= []
-print("training classifier head of {} sampled model for {} epochs".format(args.sampling, args.epochs))
-for i in range(0, args.epochs):
+for i in range(0, 5):
+    s=time.time()
+    args.seed = i
+    rainbow = rainbow_sampler(net, net_new, args, device, trainloader)
+    rainbow.do_rainbow_sampling()#rainbow.net, rainbow.net_new)
+    net_new = rainbow.net_new
     net_new.train()
-    train(i, net_new)
+    
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = net_new(inputs)
+    print("TOTAL TIME:", time.time()-s)
+    turn_off_backbone_grad(net_new)
+    optimizer = optim.SGD(filter(lambda param: param.requires_grad, net_new.parameters()), lr=args.lr,
+                          momentum=0.9, weight_decay=5e-4)
+    print("testing {} sampling at width {}".format(args.sampling, args.width))
     net_new.eval()
-    acc, loss_test =test(i, net_new)
-    test_losses.append(loss_test)
-    accs.append(acc)
+    
+    run_name = "refactor"
+    args.name = run_name
+    print(net_new)
+    
+    sampled_acc, sampled_loss = test(0, net_new)
+    save_model(args, net_new)
+    accs = []
+    test_losses= []
+    print("training classifier head of {} sampled model for {} epochs".format(args.sampling, args.epochs))
+    for i in range(0, args.epochs):
+        net_new.train()
+        train(i, net_new)
+        net_new.eval()
+        acc, loss_test =test(i, net_new)
+        test_losses.append(loss_test)
+        accs.append(acc)
 
 logger ={"pretrained_acc": pretrained_acc, "sampled_acc": sampled_acc,
         "first_epoch_acc":accs[0], "third_epoch_acc": accs[2],

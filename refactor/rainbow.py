@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 import copy
+from pytorch_cifar_utils import  set_seeds
 
 
 
@@ -44,6 +45,7 @@ class rainbow_sampler:
     def __init__(self, net, net_new, args, device, trainloader):
         self.net = copy.deepcopy(net)
         self.net_new = copy.deepcopy(net_new)
+        self.seed = args.seed
         self.sampling = args.sampling
         self.wa = args.wa
         self.in_wa = args.in_wa
@@ -52,6 +54,11 @@ class rainbow_sampler:
         self.trainloader = trainloader
 
     def do_rainbow_sampling(self):
+        set_seeds(self.seed)
+        self.net.train()
+        self.net_new = copy.deepcopy(self.net)
+        self.net_new.train()
+        print("With seed {}".format(self.seed))
         self.our_rainbow_sampling(self.net, self.net_new)
 
     @torch.no_grad()
