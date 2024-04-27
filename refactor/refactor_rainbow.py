@@ -40,7 +40,7 @@ def save_model(args, model):
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--epochs', default=10, type=int, help='number of epochs')
-parser.add_argument('--seed', default=1, type=int, help='seed')
+parser.add_argument('--seed', default=0, type=int, help='seed')
 parser.add_argument('--name', type=str, default='TESTING_VGG', 
                         help='filename for saved model')
 parser.add_argument('--aca', type=lambda x: bool(strtobool(x)), 
@@ -104,31 +104,6 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 
 
-net=ResNet18()
-replace_layers_scale(net, args.width)
-if args.fact:
-    replace_layers_factconv2d(net)
-
-
-if args.fact:
-    sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/fact_model.pt".format(args.width))
-elif not args.fact:
-    sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/conv_model.pt".format(args.width))
-net.load_state_dict(sd)
-net.to(device)
-
-net_new = copy.deepcopy(net)
-net_new.to(device)
-print(net_new)
-
-#replace_layers_fact_with_conv(net)
-net.to(device)
-print(net)
-
-net.train()
-net_new.train()
-
-set_seeds(args.seed)
 criterion = nn.CrossEntropyLoss()
 
 def train(epoch, net):
@@ -177,16 +152,41 @@ def test(epoch, net):
     print("accuracy:", acc)
     return acc, test_loss
 
-
-print("testing Res{}Net18 with width of {}".format("Fact" if args.fact else "Conv", args.width))
-pretrained_acc, og_loss = test(0, net)
-
+logger ={'width':args.width}#, }
 set_seeds(args.seed)
 for i in range(0, 5):
+    net=ResNet18()
+    replace_layers_scale(net, args.width)
+    if args.fact:
+        replace_layers_factconv2d(net)
+    
+    
+    if args.fact:
+        sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/fact_model.pt".format(args.width))
+    elif not args.fact:
+        sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/conv_model.pt".format(args.width))
+    net.load_state_dict(sd)
+    net.to(device)
+    
+    net_new = copy.deepcopy(net)
+    net_new.to(device)
+    print(net_new)
+    
+    net.to(device)
+    print(net)
+    
+    net.train()
+    net_new.train()
+    
+    set_seeds(i)
+    print("testing Res{}Net18 with width of {}".format("Fact" if args.fact else "Conv", args.width))
+    pretrained_acc, og_loss = test(0, net)
+
+
     s=time.time()
     args.seed = i
     rainbow = rainbow_sampler(net, net_new, args, device, trainloader)
-    rainbow.do_rainbow_sampling()#rainbow.net, rainbow.net_new)
+    rainbow.do_rainbow_sampling()
     net_new = rainbow.net_new
     net_new.train()
     
@@ -200,8 +200,6 @@ for i in range(0, 5):
     print("testing {} sampling at width {}".format(args.sampling, args.width))
     net_new.eval()
     
-    run_name = "refactor"
-    args.name = run_name
     print(net_new)
     
     sampled_acc, sampled_loss = test(0, net_new)
@@ -209,28 +207,32 @@ for i in range(0, 5):
     accs = []
     test_losses= []
     print("training classifier head of {} sampled model for {} epochs".format(args.sampling, args.epochs))
-    for i in range(0, args.epochs):
+    for j in range(0, args.epochs):
         net_new.train()
-        train(i, net_new)
+        train(j, net_new)
         net_new.eval()
-        acc, loss_test =test(i, net_new)
+        acc, loss_test =test(j, net_new)
         test_losses.append(loss_test)
         accs.append(acc)
 
-logger ={"pretrained_acc": pretrained_acc, "sampled_acc": sampled_acc,
-        "first_epoch_acc":accs[0], "third_epoch_acc": accs[2],
-        "tenth_epoch_acc":accs[args.epochs-1], 'width':args.width,
-        "og_loss":og_loss, "sampled_loss":sampled_loss,
-        "first_epoch_loss":test_losses[0], "third_epoch_loss": test_losses[2],
-        "tenth_epoch_loss":test_losses[args.epochs-1], 'width':args.width}
+    new_logger ={"sampled_acc_{}".format(i): sampled_acc,"pretrained_acc_{}".format(i):
+            pretrained_acc, "og_loss_{}".format(i): og_loss,
+        "first_epoch_acc_{}".format(i):accs[0], "third_epoch_acc_{}".format(i): accs[2],
+        "tenth_epoch_acc_{}".format(i):accs[args.epochs-1], 
+        "sampled_loss_{}".format(i):sampled_loss,
+        "first_epoch_loss_{}".format(i):test_losses[0], "third_epoch_loss_{}".format(i): test_losses[2],
+        "tenth_epoch_loss_{}".format(i):test_losses[args.epochs-1]}
+    logger = {**logger, **new_logger}
 
 wandb_dir = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
-group_string = "refactor"
+#group_string = "refactor"
+group_string = "variance_runs"
+
+#run_name = "refactor"
+run_name= "width_{}_sampling_{}_fact_{}_ACA_{}_WA_{}_inWA_{}".format(args.width, args.sampling, args.fact, args.aca, args.wa, args.in_wa)
+args.name = run_name
 run = wandb.init(project="random_project", config=args,
         group=group_string, name=run_name, dir=wandb_dir)
 run.log(logger)
-
-args.name += "_trained_classifier_head"
-save_model(args, net_new)
