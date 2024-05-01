@@ -36,7 +36,7 @@ def return_hook():
 # theirs wa false aca false (conv) [Just Random]
 # theirs was true aca false (conv)
 class rainbow_sampler:
-    def __init__(self, net, net_new, args, device, trainloader):
+    def __init__(self, net, net_new, args, device, trainloader, num_classes=10):
         self.net = copy.deepcopy(net)
         self.net_new = copy.deepcopy(net_new)
         self.seed = args.seed
@@ -46,6 +46,7 @@ class rainbow_sampler:
         self.aca = args.aca 
         self.device = device
         self.trainloader = trainloader
+        self.num_classes = num_classes
 
     def do_rainbow_sampling(self):
         set_seeds(self.seed)
@@ -97,10 +98,10 @@ class rainbow_sampler:
                         groups = m2.groups,
                         bias=True if m2.bias is not None else False).to(self.device)
     
-                if self.sampling == 'ours' and self.wa:
+                if self.sampling == 'structured_alignment' and self.wa:
                     # right now this function does not do an explicit specification of the colored covariance
                     new_module = self.weight_Alignment(m1, m2, new_module, in_dim=self.in_wa)
-                if self.sampling == 'theirs':
+                if self.sampling == 'cc_specification':
                     # for conv only
                     if self.wa:
                         new_module = self.weight_Alignment_With_CC(m1, m2, new_module)
@@ -119,31 +120,11 @@ class rainbow_sampler:
             ##just run stats through
             if isinstance(m1, nn.BatchNorm2d):
                 self.batchNorm_stats_recalc(m1, m2)
-    
-    def conv_ACA(self, m1, m2, new_module):
-        print("Convolutional Input Activations Alignment")
-        activation = []
-        other_activation = []
-        # this hook grabs the input activations of the conv layer
-        # rearanges the vector so that the width by height dim is 
-        # additional samples to the covariance
-        # bwh x c
-        def define_hook(m):
-            def store_hook(mod, inputs, outputs):
-                #from bonner lab tutorial
-                x = inputs[0]
-                x = x.permute(0, 2, 3, 1)
-                x = x.reshape((-1, x.shape[-1]))
-                activation.append(x)
-                raise Exception("Done")
-            return store_hook
-        
-        hook_handle_1 = m1.register_forward_hook(define_hook(m1))
-        hook_handle_2 = m2.register_forward_hook(define_hook(m2))
-        
-        print("Starting Sample Cross-Covariance Calculation")
-        covar = None
-        total = 0
+
+    def run_forward(self, calc_covar=False):
+        if calc_covar:
+            covar = None
+            total = 0
         for batch_idx, (inputs, targets) in enumerate(self.trainloader):
             inputs, targets = inputs.to(self.device), targets.to(self.device)
             try:
@@ -154,26 +135,47 @@ class rainbow_sampler:
                 outputs2 = self.net_new(inputs)
             except Exception:
                 pass
-            total+= inputs.shape[0]
-            if covar is None:
-                #activation is bwh x c
-                covar = activation[0].T @ activation[1]
-                assert (covar.isfinite().all())
-            else: 
-                #activation is bwh x c
-                covar += activation[0].T @ activation[1]
-                assert (covar.isfinite().all())
-            activation = []
-            other_activation = []
-    
-        #c x c
-        covar /= total
+            if calc_covar:
+                total+= inputs.shape[0]
+                if covar is None:
+                    #activation is bwh x c
+                    covar = self.activation[0].T @ self.activation[1]
+                    assert (covar.isfinite().all())
+                else: 
+                    #activation is bwh x c
+                    covar += self.activation[0].T @ self.activation[1]
+                    assert (covar.isfinite().all())
+                self.activation = []
+        if calc_covar:
+            #c x c
+            covar /= total
+            return covar
+
+    def conv_ACA(self, m1, m2, new_module):
+        print("Convolutional Input Activations Alignment")
+        self.activation = []
+        # this hook grabs the input activations of the conv layer
+        # rearanges the vector so that the width by height dim is 
+        # additional samples to the covariance
+        # bwh x c
+        def define_hook(m):
+            def store_hook(mod, inputs, outputs):
+                #from bonner lab tutorial
+                x = inputs[0]
+                x = x.permute(0, 2, 3, 1)
+                x = x.reshape((-1, x.shape[-1]))
+                self.activation.append(x)
+                raise Exception("Done")
+            return store_hook
+        hook_handle_1 = m1.register_forward_hook(define_hook(m1))
+        hook_handle_2 = m2.register_forward_hook(define_hook(m2))
+        print("Starting Sample Cross-Covariance Calculation")
+        covar = self.run_forward(calc_covar=True)
+        print("Sample Cross-Covariance Calculation finished")
         hook_handle_1.remove()
         hook_handle_2.remove()
-        print("Sample Cross-Covariance Calculation finished")
         align, _ = calc_svd(covar, name="Cross-Covariance")
         new_module.register_buffer("input_align", align)
-    
         # this hook takes the input to the conv, aligns, then returns
         # to the conv the aligned inputs
         hook_handle_pre_forward  = new_module.register_forward_pre_hook(return_hook())
@@ -189,16 +191,7 @@ class rainbow_sampler:
         handle_2 = m2.register_forward_hook(lambda mod, inputs, outputs: Exception("Done"))
         m1.to(self.device)
         m2.to(self.device)
-        for batch_idx, (inputs, targets) in enumerate(self.trainloader):
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            try:
-                outputs1 = self.net(inputs)
-            except Exception:
-                pass
-            try:
-                outputs2 = self.net_new(inputs)
-            except Exception:
-                pass
+        self.run_forward(calc_covar=False)
         handle_1.remove()
         handle_2.remove()
         m1.eval()
@@ -211,36 +204,19 @@ class rainbow_sampler:
                 if m1.bias is not None else False).to(self.device)
         ref_sd = m1.state_dict()
         loading_sd = new_module.state_dict()
-        loading_sd['weight'] = ref_sd['weight']
+        if m1.out_features == self.num_classes:
+            loading_sd['weight'] = ref_sd['weight']
         if m1.bias is not None:
             loading_sd['bias'] = ref_sd['bias']
-        activation = []
-        other_activation = []
-        
+        self.activation = []
         hook_handle_1 = m1.register_forward_hook(lambda mod, inputs, outputs:
-                activation.append(inputs[0]))
-        
+                self.activation.append(inputs[0]))
         hook_handle_2 = m2.register_forward_hook(lambda mod, inputs, outputs:
-                other_activation.append(inputs[0]))
-        covar = None
-        total = 0
+                self.activation.append(inputs[0]))
         print("Starting Sample Cross-Covariance Calculation")
-        for batch_idx, (inputs, targets) in enumerate(self.trainloader):
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            outputs1 = self.net(inputs)
-            outputs2 = self.net_new(inputs)
-            total+= inputs.shape[0]
-            if covar is None:
-                covar = activation[0].T @ other_activation[0]
-            else: 
-                covar += activation[0].T @ other_activation[0]
-            activation = []
-            other_activation = []
-        covar /= total
-        
+        covar = self.run_forward(calc_covar=True)
         hook_handle_1.remove()
         hook_handle_2.remove()
-        
         print("Sample Cross-Covariance Calculation finished")
         align, _ = calc_svd(covar, name="Cross-Covariance")
         new_weight = loading_sd['weight']
@@ -248,7 +224,7 @@ class rainbow_sampler:
                 destination=-1)
         new_weight = new_weight@align
         loading_sd['weight'] = torch.moveaxis(new_weight, source=-1,
-                destination=1)        
+                destination=1)
         new_module.load_state_dict(loading_sd)
         return new_module
 
