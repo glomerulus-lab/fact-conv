@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 
 import copy
-from pytorch_cifar_utils import  set_seeds
+import logging 
 
+from pytorch_cifar_utils import  set_seeds
 from conv_modules import FactConv2d
 #traditional way of calculating svd. can be a bit unstable sometimes tho
 def calc_svd(A, name=''):
@@ -36,7 +37,7 @@ def return_hook():
 # theirs wa false aca false (conv) [Just Random]
 # theirs was true aca false (conv)
 class rainbow_sampler:
-    def __init__(self, net, net_new, args, device, trainloader, num_classes=10):
+    def __init__(self, net, net_new, args, device, trainloader, num_classes=10, verbose=True):
         self.net = copy.deepcopy(net)
         self.net_new = copy.deepcopy(net_new)
         self.seed = args.seed
@@ -47,13 +48,15 @@ class rainbow_sampler:
         self.device = device
         self.trainloader = trainloader
         self.num_classes = num_classes
+        logging.basicConfig(level=logging.INFO if verbose else logging.WARNING,
+                format='%(message)s')
 
     def do_rainbow_sampling(self):
         set_seeds(self.seed)
         self.net.train()
         self.net_new = copy.deepcopy(self.net)
         self.net_new.train()
-        print("With seed {}".format(self.seed))
+        logging.info("With seed {}".format(self.seed))
         self.our_rainbow_sampling(self.net, self.net_new)
 
     def load_state_dicts(self, m1, m2, new_module):
@@ -152,7 +155,7 @@ class rainbow_sampler:
             return covar
 
     def conv_ACA(self, m1, m2, new_module):
-        print("Convolutional Input Activations Alignment")
+        logging.info("Convolutional Input Activations Alignment")
         self.activation = []
         # this hook grabs the input activations of the conv layer
         # rearanges the vector so that the width by height dim is 
@@ -169,9 +172,9 @@ class rainbow_sampler:
             return store_hook
         hook_handle_1 = m1.register_forward_hook(define_hook(m1))
         hook_handle_2 = m2.register_forward_hook(define_hook(m2))
-        print("Starting Sample Cross-Covariance Calculation")
+        logging.info("Starting Sample Cross-Covariance Calculation")
         covar = self.run_forward(calc_covar=True)
-        print("Sample Cross-Covariance Calculation finished")
+        logging.info("Sample Cross-Covariance Calculation finished")
         hook_handle_1.remove()
         hook_handle_2.remove()
         align, _ = calc_svd(covar, name="Cross-Covariance")
@@ -182,7 +185,7 @@ class rainbow_sampler:
         return new_module
     
     def batchNorm_stats_recalc(self, m1, m2):
-        print("Calculating Batch Statistics")
+        logging.info("Calculating Batch Statistics")
         m1.train()
         m2.train()
         m1.reset_running_stats()
@@ -196,10 +199,10 @@ class rainbow_sampler:
         handle_2.remove()
         m1.eval()
         m2.eval()
-        print("Batch Statistics Calculation Finished")
+        logging.info("Batch Statistics Calculation Finished")
     
     def linear_ACA(self, m1, m2, new_model):
-        print("Linear Input Activations Alignment")
+        logging.info("Linear Input Activations Alignment")
         new_module = nn.Linear(m1.in_features, m1.out_features, bias=True
                 if m1.bias is not None else False).to(self.device)
         ref_sd = m1.state_dict()
@@ -213,11 +216,11 @@ class rainbow_sampler:
                 self.activation.append(inputs[0]))
         hook_handle_2 = m2.register_forward_hook(lambda mod, inputs, outputs:
                 self.activation.append(inputs[0]))
-        print("Starting Sample Cross-Covariance Calculation")
+        logging.info("Starting Sample Cross-Covariance Calculation")
         covar = self.run_forward(calc_covar=True)
         hook_handle_1.remove()
         hook_handle_2.remove()
-        print("Sample Cross-Covariance Calculation finished")
+        logging.info("Sample Cross-Covariance Calculation finished")
         align, _ = calc_svd(covar, name="Cross-Covariance")
         new_weight = loading_sd['weight']
         new_weight = torch.moveaxis(new_weight, source=1,
@@ -242,14 +245,14 @@ class rainbow_sampler:
         #compute weight cross-covariance indim*spatial x indim*spatial
         #TODO REFACTOR TO HAVE REF FIRST. OUTDIM x OUTDIM 
         if in_dim:
-            print("Input Weight Alignment")
+            logging.info("Input Weight Alignment")
             weight_cov = (generated_weight.T@reference_weight)
             alignment, _ = calc_svd(weight_cov, name="Weight alignment")
             
             # outdim x indim*spatial
             final_gen_weight = generated_weight@alignment
         else:
-            print("Output Weight Alignment")
+            logging.info("Output Weight Alignment")
             weight_cov = (reference_weight@generated_weight.T)
             alignment, _ = calc_svd(weight_cov, name="Weight alignment")
             
@@ -264,7 +267,7 @@ class rainbow_sampler:
         return new_module
 
     def weight_Alignment_With_CC(self, m1, m2, new_module):
-        print("Weight alignment with Colored Covariance")
+        logging.info("Weight alignment with Colored Covariance")
         ref_sd, gen_sd, loading_sd = self.load_state_dicts(m1, m2, new_module)
    
         old_weight = ref_sd['weight']
@@ -295,7 +298,7 @@ class rainbow_sampler:
     # this function does not do an explicit specification of the colored covariance
     @torch.no_grad()
     def colored_Covariance_Specification(self, m1, m2, new_module):
-        print("Colored Covariance")
+        logging.info("Colored Covariance")
         ref_sd, gen_sd, loading_sd = self.load_state_dicts(m1, m2, new_module)
    
         old_weight = ref_sd['weight']
