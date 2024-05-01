@@ -28,57 +28,52 @@ class FactConv2d(nn.Conv2d):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',  # TODO: refine this type
-        device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
+        device=None,
         dtype=None
     ) -> None:
         # init as Conv2d
         super().__init__(
             in_channels, out_channels, kernel_size, stride, padding, dilation, 
             groups, bias, padding_mode, device, dtype)
-
-        factory_kwargs = {'device': device, 'dtype': dtype}
-        self.factory_kwargs = factory_kwargs
-
         # weight shape: (out_channels, in_channels // groups, *kernel_size)
         weight_shape = self.weight.shape
+        new_weight = self.weight.new_empty(weight_shape)
         del self.weight # remove Parameter, create buffer
-        self.register_buffer("weight", torch.empty(weight_shape, **factory_kwargs))
+        self.register_buffer("weight", new_weight)
         nn.init.kaiming_normal_(self.weight)
         
         self.in_features = self.in_channels // self.groups * \
             self.kernel_size[0] * self.kernel_size[1]
         triu1 = torch.triu_indices(self.in_channels // self.groups,
                                        self.in_channels // self.groups,
-                                       **factory_kwargs)
-        self.scat_idx1=triu1[0]*self.in_channels//self.groups + triu1[1]
+                                      device=self.weight.device,
+                                      dtype=torch.long)
+        scat_idx1 = triu1[0]*self.in_channels//self.groups + triu1[1]
+        self.register_buffer("scat_idx1", scat_idx1, persistent=False)
+
         triu2 = torch.triu_indices(self.kernel_size[0] * self.kernel_size[1],
                                        self.kernel_size[0]
                                        * self.kernel_size[1],
-                                       **factory_kwargs)
+                                      device=self.weight.device,
+                                      dtype=torch.long)
+        scat_idx2 = triu2[0]*self.kernel_size[0]*self.kernel_size[1] + triu2[1]
+        self.register_buffer("scat_idx2", scat_idx2, persistent=False)
 
-        self.scat_idx2=triu2[0]*self.kernel_size[0]*self.kernel_size[1] + triu2[1]
         triu1_len = triu1.shape[1]
         triu2_len = triu2.shape[1]
-        tri1_vec = torch.zeros((triu1_len,),
-            **factory_kwargs)
 
+        tri1_vec = self.weight.new_zeros((triu1_len,))
         self.tri1_vec = Parameter(tri1_vec)
 
-        tri2_vec = torch.zeros((triu2_len,), **factory_kwargs)
+        tri2_vec = self.weight.new_zeros((triu2_len,))
         self.tri2_vec = Parameter(tri2_vec)
 
-    def construct_Us(self):
-        self.tri1_vec = Parameter(self._tri_vec_to_mat(self.tri1_vec, self.in_channels //
-                self.groups,self.scat_idx1))
-        self.tri2_vec = Parameter(self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1],
-                self.scat_idx2))
 
     def forward(self, input: Tensor) -> Tensor:
         U1 = self._tri_vec_to_mat(self.tri1_vec, self.in_channels //
-                                  self.groups, self.scat_idx1)        
+                                  self.groups, self.scat_idx1)
         U2 = self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1],
-                self.scat_idx2
-        )
+                self.scat_idx2)
         # flatten over filter dims and contract
         composite_weight = _contract(self.weight, U1.T, 1)
         composite_weight = _contract(
@@ -87,8 +82,7 @@ class FactConv2d(nn.Conv2d):
         return self._conv_forward(input, composite_weight, self.bias)
 
     def _tri_vec_to_mat(self, vec, n, scat_idx):
-        U = torch.zeros((n* n),
-                **self.factory_kwargs).scatter_(0,scat_idx,vec).view(n,n)
-        U = torch.diagonal_scatter(U,U.diagonal().exp_())
+        U = self.weight.new_zeros((n*n)).scatter_(0, scat_idx, vec).view(n, n)
+        U = torch.diagonal_scatter(U, U.diagonal().exp_())
         return U
 
