@@ -52,19 +52,13 @@ parser.add_argument('--in_wa', type=lambda x: bool(strtobool(x)),
 parser.add_argument('--fact', type=lambda x: bool(strtobool(x)), 
                         default=True, help='FactNet True or False')
 parser.add_argument('--width', default=0.125, type=float, help='width')
-parser.add_argument('--sampling', type=str, default='ours',
-        choices=['ours', 'theirs'], help="which sampling to use")
+parser.add_argument('--sampling', type=str, default='structured_alignment',
+        choices=['structured_alignment', 'cc_specification'], help="which sampling to use")
 
 args = parser.parse_args()
 
-if args.width == 1.0:
-    args.width = 1
-if args.width == 2.0:
-    args.width = 2
-if args.width == 4.0:
-    args.width = 4
-if args.width == 8.0:
-    args.width = 8
+if int(args.width) == args.width:
+    args.width = int(args.width)
 
 print("Sampling: {} Width: {} Fact: {} ACA: {} WA: {} In_WA: {}".format(args.sampling,
     args.width, args.fact, args.aca, args.wa, args.in_wa))
@@ -154,7 +148,7 @@ def test(epoch, net):
 
 logger ={'width':args.width}#, }
 set_seeds(args.seed)
-for i in range(0, 5):
+for i in range(0, 1):
     net=ResNet18()
     replace_layers_scale(net, args.width)
     if args.fact:
@@ -228,7 +222,7 @@ wandb_dir = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 #group_string = "refactor"
-group_string = "variance_runs"
+group_string = "IGNOREvariance_runs"
 
 #run_name = "refactor"
 run_name= "width_{}_sampling_{}_fact_{}_ACA_{}_WA_{}_inWA_{}".format(args.width, args.sampling, args.fact, args.aca, args.wa, args.in_wa)
