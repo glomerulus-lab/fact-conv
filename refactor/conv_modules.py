@@ -5,7 +5,10 @@ from torch.nn.parameter import Parameter
 from torch.nn.common_types import _size_2_t
 from typing import Optional, List, Tuple, Union
 
-
+""" 
+The function below is copied directly from 
+https://bonnerlab.github.io/ccn-tutorial/pages/analyzing_neural_networks.html
+"""
 def _contract(tensor, matrix, axis):
     """tensor is (..., D, ...), matrix is (P, D), returns (..., P, ...)."""
     t = torch.moveaxis(tensor, source=axis, destination=-1)  # (..., D)

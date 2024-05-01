@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from conv_modules import FactConv2d
-from learnable_cov import V1_init
+from V1_covariance import V1_init
 
 
 def recurse_preorder(model, callback):
