@@ -36,8 +36,7 @@ class FactConv2d(nn.Conv2d):
             in_channels, out_channels, kernel_size, stride, padding, dilation, 
             groups, bias, padding_mode, device, dtype)
         # weight shape: (out_channels, in_channels // groups, *kernel_size)
-        weight_shape = self.weight.shape
-        new_weight = self.weight.new_empty(weight_shape)
+        new_weight = torch.empty_like(self.weight)
         del self.weight # remove Parameter, create buffer
         self.register_buffer("weight", new_weight)
         nn.init.kaiming_normal_(self.weight)
