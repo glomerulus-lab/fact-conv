@@ -6,6 +6,8 @@ import logging
 
 from pytorch_cifar_utils import  set_seeds
 from conv_modules import FactConv2d
+
+
 #traditional way of calculating svd. can be a bit unstable sometimes tho
 def calc_svd(A, name=''):
     u, s, vh = torch.linalg.svd(A, full_matrices=False)  # (C_in_reference, R), (R,), (R, C_in_generated)
@@ -26,16 +28,6 @@ def return_hook():
     return hook
 
 
-#settings
-# our, wa true, aca true (fact, conv)
-# our wa false, aca true (fact, conv)
-# our wa false aca false (fact, conv) [Just Random]
-# our was true aca false (fact, conv)
-#
-# theirs wa true, aca true (conv)
-# theirs wa false, aca true (conv)
-# theirs wa false aca false (conv) [Just Random]
-# theirs was true aca false (conv)
 class RainbowSampler:
     def __init__(self, ref_net, trainloader, seed=0, sampling='structured_alignment', wa=True, in_wa=True, aca=True, device=None, num_classes=10, verbose=True):
         self.ref_net = copy.deepcopy(ref_net)
@@ -48,8 +40,7 @@ class RainbowSampler:
         self.aca = aca 
         self.device = torch.get_default_device() if device is None else torch.device(device) 
         self.num_classes = num_classes
-        logging.basicConfig(level=logging.INFO if verbose else logging.WARNING,
-                format='%(message)s')
+        logging.basicConfig(level=logging.INFO if verbose else logging.WARNING, format='%(message)s')
 
     def sample(self):
         set_seeds(self.seed)
@@ -158,6 +149,7 @@ class RainbowSampler:
     def conv_ACA(self, m1, m2, new_module):
         logging.info("Convolutional Input Activations Alignment")
         self.activation = []
+
         # this hook grabs the input activations of the conv layer
         # rearanges the vector so that the width by height dim is 
         # additional samples to the covariance
@@ -171,6 +163,7 @@ class RainbowSampler:
                 self.activation.append(x)
                 raise Exception("Done")
             return store_hook
+
         hook_handle_1 = m1.register_forward_hook(define_hook(m1))
         hook_handle_2 = m2.register_forward_hook(define_hook(m2))
         logging.info("Starting Sample Cross-Covariance Calculation")
@@ -296,7 +289,6 @@ class RainbowSampler:
         new_module.load_state_dict(loading_sd)
         return new_module
     
-    # this function does not do an explicit specification of the colored covariance
     @torch.no_grad()
     def colored_Covariance_Specification(self, m1, m2, new_module):
         logging.info("Colored Covariance")
