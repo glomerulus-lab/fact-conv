@@ -83,7 +83,6 @@ def replace_layers_scale(model, scale=1):
     return recurse_preorder(model, _replace_layers_scale)
 
 
-
 #used in activation cross-covariance calculation
 #input align hook
 def return_hook():
