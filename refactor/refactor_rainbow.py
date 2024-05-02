@@ -23,7 +23,7 @@ from conv_modules import FactConv2d
 from models.function_utils import replace_layers_factconv2d,\
 replace_layers_scale, replace_layers_fact_with_conv, turn_off_backbone_grad, \
 recurse_preorder
-from rainbow import calc_svd, return_hook, rainbow_sampler
+from rainbow import RainbowSampler
 
 def save_model(args, model):
     src = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/refactoring/"
@@ -161,17 +161,8 @@ for i in range(0, 1):
         sd=torch.load("/network/scratch/v/vivian.white/v1-models/saved-models/affine_1/{}scale_final/conv_model.pt".format(args.width))
     net.load_state_dict(sd)
     net.to(device)
-    
-    net_new = copy.deepcopy(net)
-    net_new.to(device)
-    print(net_new)
-    
-    net.to(device)
     print(net)
-    
-    net.train()
-    net_new.train()
-    
+
     set_seeds(i)
     print("testing Res{}Net18 with width of {}".format("Fact" if args.fact else "Conv", args.width))
     pretrained_acc, og_loss = test(0, net)
@@ -179,33 +170,32 @@ for i in range(0, 1):
 
     s=time.time()
     args.seed = i
-    rainbow = rainbow_sampler(net, net_new, args, device, trainloader)
-    rainbow.do_rainbow_sampling()
-    net_new = rainbow.net_new
-    net_new.train()
+    rainbow = RainbowSampler(net, trainloader, args.seed, args.sampling, args.wa, args.in_wa, args.aca, device)
+    rainbow_net = rainbow.sample()
+    rainbow_net.train()
     
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
-        outputs = net_new(inputs)
+        outputs = rainbow_net(inputs)
     print("TOTAL TIME:", time.time()-s)
-    turn_off_backbone_grad(net_new)
-    optimizer = optim.SGD(filter(lambda param: param.requires_grad, net_new.parameters()), lr=args.lr,
+    turn_off_backbone_grad(rainbow_net)
+    optimizer = optim.SGD(filter(lambda param: param.requires_grad, rainbow_net.parameters()), lr=args.lr,
                           momentum=0.9, weight_decay=5e-4)
     print("testing {} sampling at width {}".format(args.sampling, args.width))
-    net_new.eval()
+    rainbow_net.eval()
     
-    print(net_new)
+    print(rainbow_net)
     
-    sampled_acc, sampled_loss = test(0, net_new)
-    save_model(args, net_new)
+    sampled_acc, sampled_loss = test(0, rainbow_net)
+    save_model(args, rainbow_net)
     accs = []
     test_losses= []
     print("training classifier head of {} sampled model for {} epochs".format(args.sampling, args.epochs))
     for j in range(0, args.epochs):
-        net_new.train()
-        train(j, net_new)
-        net_new.eval()
-        acc, loss_test =test(j, net_new)
+        rainbow_net.train()
+        train(j, rainbow_net)
+        rainbow_net.eval()
+        acc, loss_test =test(j, rainbow_net)
         test_losses.append(loss_test)
         accs.append(acc)
 
