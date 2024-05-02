@@ -5,6 +5,8 @@ from .function_utils import replace_layers_factconv2d, turn_off_covar_grad, repl
 def define_models(args):
     if 'resnet18' in args.net:
        model = ResNet18()
+    if args.width != 1:
+        replace_layers_scale(model, args.width)
     if 'fact' in args.net:
        replace_layers_factconv2d(model)
     if "v1" in args.net:
@@ -13,6 +15,5 @@ def define_models(args):
         turn_off_covar_grad(model, "spatial")
     if "uc" in args.net:
         turn_off_covar_grad(model, "channel")
-    if args.width != 1:
-        replace_layers_scale(model, args.width)
+
     return model
