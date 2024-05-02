@@ -20,3 +20,19 @@ We provide our trained ResNets and Fact-Conv variants in this google drive link.
 
 Run `python3 setup.py install` to install the Factored Covariance module
 
+
+# Cite Us
+
+If you found this repository or our paper helpful, please cite us as shown below:
+
+```bibtex
+@inproceedings{
+white2024learning,
+title={Learning and Aligning Structured Random Feature Networks},
+author={Vivian White and Muawiz Sajjad Chaudhary and Guy Wolf and Guillaume Lajoie and Kameron Decker Harris},
+booktitle={ICLR 2024 Workshop on Representational Alignment},
+year={2024},
+url={https://openreview.net/forum?id=vWhUQXQoFF}
+}
+```
+
