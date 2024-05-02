@@ -72,8 +72,7 @@ def V1_covariance_matrix(dim, size, spatial_freq, center, scale=1):
     return C
 
 
-def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
-            device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
+def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None):
     '''
     Initialization for FactConv2d
     '''
@@ -85,14 +84,14 @@ def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
     out_channels, in_channels, xdim, ydim = layer.weight.shape
     dim = (xdim, ydim)
     
-    C_patch = Tensor(V1_covariance_matrix(dim, size, spatial_freq, center, scale)).to(device)
+    C_patch = Tensor(V1_covariance_matrix(dim, size, spatial_freq, center, scale)).to(layer.weight.device)
     U_patch = torch.linalg.cholesky(C_patch, upper=True)
     n = U_patch.shape[0]
     # replace diagonal with logarithm for parameterization
     log_diag = torch.log(torch.diagonal(U_patch))
     U_patch[range(n), range(n)] = log_diag
     # form vector of upper triangular entries
-    tri_vec = U_patch[torch.triu_indices(n, n, device=device).tolist()].ravel()
+    tri_vec = U_patch[torch.triu_indices(n, n, device=layer.weight.device).tolist()].ravel()
     with torch.no_grad():
         layer.tri2_vec.copy_(tri_vec)
 
