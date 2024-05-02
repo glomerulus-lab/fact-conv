@@ -10,25 +10,34 @@ from distutils.util import strtobool
 import argparse
 import V1_models
 import LC_models
+from test_models_safety import PostExp_Vivian, PreExp_Vivian
+import numpy as np
+import random
+   
+    
+def set_seeds(seed):
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    random.seed(seed)
+    np.random.seed(seed)
 
     
 def save_model(args, model, loss, accuracy):
-    src = "/research/harris/vivian/v1-models/saved-models/CIFAR10/"
+    src  = "/home/mila/m/muawiz.chaudhary/scratch/v1-models/saved-models/VIV_CIFAR10_testing/"
     model_dir =  src + args.name
-    if not os.path.exists(model_dir): 
-        os.makedirs(model_dir)
+    os.makedirs(model_dir, exist_ok=True)
     os.chdir(model_dir)
     
     #saves loss & accuracy in the trial directory -- all trials
     trial_dir = model_dir + "/trial_" + str(args.trial)
-    if not os.path.exists(trial_dir): 
-        os.makedirs(trial_dir)
+    os.makedirs(trial_dir, exist_ok=True)
     os.chdir(trial_dir)
     
-    torch.save(loss, "loss.pt")
-    torch.save(accuracy, "accuracy.pt")
-    torch.save(model.state_dict(), "model.pt")
-    torch.save(args, "args.pt")
+    torch.save(loss, trial_dir+"/loss.pt")
+    torch.save(accuracy, trial_dir+ "/accuracy.pt")
+    torch.save(model.state_dict(), trial_dir+ "/model.pt")
+    torch.save(args, trial_dir+ "/args.pt")
 
 
 if __name__ == '__main__':
@@ -55,6 +64,10 @@ if __name__ == '__main__':
                         help="freeze channels for LearnableCov models")
     parser.add_argument('--spatial_init', type=str, default='V1', choices=['default', 'V1'], 
                         help="initialization for spatial filters for LearnableCov models")
+    parser.add_argument('--net', type=str, default='post', choices=['post',
+        'pre'], 
+                        help="which convmodule to use")
+    parser.add_argument('--seed', type=int, default=0, help='seed')
     args = parser.parse_args()
     initial_lr = args.lr
 
@@ -62,8 +75,15 @@ if __name__ == '__main__':
     device = torch.device("cuda:" + str(args.device) if use_cuda else "cpu")
 
     start = datetime.now()
-    
-    model = LC_models.V1_CIFAR10(args.hidden_dim, args.s, args.f, args.scale, args.bias, args.freeze_spatial, args.freeze_channel, args.spatial_init).to(device)
+    set_seeds(args.seed)
+
+    if args.net == "post":
+        model = PostExp_Vivian(args.hidden_dim, args.s, args.f, args.scale, args.bias, args.freeze_spatial, args.freeze_channel, args.spatial_init).to(device)
+    elif args.net == "pre":
+        model = PreExp_Vivian(args.hidden_dim, args.s, args.f, args.scale, args.bias, args.freeze_spatial, args.freeze_channel, args.spatial_init).to(device)
+
+    set_seeds(args.seed)
+    print(model)
     print("Num params total: ", sum(p.numel() for p in model.parameters()))
     print("Num params grad: ", sum(p.numel() for p in model.parameters() if p.requires_grad))
     

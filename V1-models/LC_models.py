@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 import LearnableCov
+from resnet import ResNet18, ResNet18_Class100
 
 
 class V1_MNIST(nn.Module):
@@ -49,6 +50,66 @@ class V1_MNIST(nn.Module):
         
         beta = self.clf(concat) 
         return beta
+
+class Resnet_V1_CIFAR10(nn.Module):
+    def __init__(self, size, spatial_freq, scale, bias,
+            freeze_spatial, freeze_channel, spatial_init, seed=None):
+        super().__init__()
+        self.resnet = ResNet18()
+
+        def replace_layers(model):
+            for n, module in model.named_children():
+                if len(list(module.children())) > 0:
+                    ## compound module, go inside it
+                    replace_layers(module)
+                if isinstance(module, nn.Conv2d):
+                    ## simple module
+                    new_module = LearnableCov.FactConv2d(in_channels=module.in_channels,
+                                out_channels=module.out_channels,
+                                kernel_size=module.kernel_size,
+                                stride=module.stride, padding=module.padding,
+                                bias=module.bias)
+                    setattr(model, n, new_module)
+
+        replace_layers(self.resnet)
+        
+        firstConv = True
+        for c, m in enumerate(self.resnet.modules()):
+            if isinstance(m, LearnableCov.FactConv2d):
+                scale = 1/(m.in_channels*m.kernel_size[0]*m.kernel_size[1])
+                center = (int(m.kernel_size[0]/2), int(m.kernel_size[1]/2))
+
+                if spatial_init == 'V1':
+                    LearnableCov.V1_init(m, size, spatial_freq, center, scale, bias, seed)
+                    if firstConv:
+                        print("V1 spatial init")
+                else:
+                    if firstConv:
+                        print("Default spatial init")
+                
+                if freeze_spatial == True:
+                    m.tri2_vec.requires_grad=False
+                    if firstConv:
+                        print("Freeze spatial vec")
+                else:
+                    m.tri2_vec.requires_grad=True
+                    if firstConv:
+                        print("Learnable spatial vec")
+
+                if freeze_channel == True:
+                    m.tri1_vec.requires_grad=False
+                    if firstConv:
+                        print("Freeze channel vec")
+                else:
+                    m.tri1_vec.requires_grad=True
+                    if firstConv:
+                        print("Learnable channel vec")
+                firstConv = False
+
+
+    def forward(self, x):
+        return self.resnet(x)
+
 
 class V1_CIFAR10(nn.Module):
     def __init__(self, hidden_dim, size, spatial_freq, scale, bias,
@@ -211,6 +272,65 @@ class V1_CIFAR100(nn.Module):
         h = self.bn_h2(h)
         h = flatten(pool(h))
         return self.clf(h)
+
+
+class Resnet_V1_CIFAR100(nn.Module):
+    def __init__(self, size, spatial_freq, scale, bias,
+            freeze_spatial, freeze_channel, spatial_init, seed=None):
+        super().__init__()
+        self.resnet = ResNet18_Class100()
+
+        def replace_layers(model):
+            for n, module in model.named_children():
+                if len(list(module.children())) > 0:
+                    ## compound module, go inside it
+                    replace_layers(module)
+                if isinstance(module, nn.Conv2d):
+                    ## simple module
+                    new_module = LearnableCov.FactConv2d(in_channels=module.in_channels,
+                                out_channels=module.out_channels,
+                                kernel_size=module.kernel_size,
+                                stride=module.stride, padding=module.padding,
+                                bias=module.bias)
+                    setattr(model, n, new_module)
+
+        replace_layers(self.resnet)
+        
+        firstConv = True
+        for c, m in enumerate(self.resnet.modules()):
+            if isinstance(m, LearnableCov.FactConv2d):
+                scale = 1/(m.in_channels*m.kernel_size[0]*m.kernel_size[1])
+                center = (int(m.kernel_size[0]/2), int(m.kernel_size[1]/2))
+
+                if spatial_init == 'V1':
+                    LearnableCov.V1_init(m, size, spatial_freq, center, scale, bias, seed)
+                    if firstConv:
+                        print("V1 spatial init")
+                else:
+                    if firstConv:
+                        print("Default spatial init")
+                
+                if freeze_spatial == True:
+                    m.tri2_vec.requires_grad=False
+                    if firstConv:
+                        print("Freeze spatial vec")
+                else:
+                    m.tri2_vec.requires_grad=True
+                    if firstConv:
+                        print("Learnable spatial vec")
+
+                if freeze_channel == True:
+                    m.tri1_vec.requires_grad=False
+                    if firstConv:
+                        print("Freeze channel vec")
+                else:
+                    m.tri1_vec.requires_grad=True
+                    if firstConv:
+                        print("Learnable channel vec")
+                firstConv = False
+   
+    def forward(self, x):
+        return self.resnet(x)
 
 
 class SimpleLearnableNetwork(nn.Module):

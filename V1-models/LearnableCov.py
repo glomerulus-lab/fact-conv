@@ -105,6 +105,13 @@ class Conv2d(nn.Conv2d):
         
         return self._conv_forward(input, composite_weight, self.bias)
 
+
+def rms(x):
+    x = x**2
+    x = torch.mean(x)
+    return torch.sqrt(x)
+
+
 class FactConv2d(nn.Conv2d):
     def __init__(
         self,
@@ -136,32 +143,47 @@ class FactConv2d(nn.Conv2d):
         
         self.in_features = self.in_channels // self.groups * \
             self.kernel_size[0] * self.kernel_size[1]
-        triu1_len = torch.triu_indices(self.in_channels // self.groups,
-                                       self.in_channels // self.groups).shape[1]
-        triu2_len = torch.triu_indices(self.kernel_size[0] * self.kernel_size[1],
-                                       self.kernel_size[0] * self.kernel_size[1]).shape[1]
-        self.tri1_vec = Parameter(torch.zeros((triu1_len,), **factory_kwargs))
-        self.tri2_vec = Parameter(torch.zeros((triu2_len,), **factory_kwargs))
+        triu1 = torch.triu_indices(self.in_channels // self.groups,
+                                       self.in_channels // self.groups)
+        triu2 = torch.triu_indices(self.kernel_size[0] * self.kernel_size[1],
+                                       self.kernel_size[0]
+                                       * self.kernel_size[1])
+        triu1_len = triu1.shape[1]
+        triu2_len = triu2.shape[1]
+        tri1_vec = torch.zeros((triu1_len,),
+            **factory_kwargs)
+        self.tri1_vec = Parameter(tri1_vec)
+
+        tri2_vec = torch.zeros((triu2_len,), **factory_kwargs)
+        self.tri2_vec = Parameter(tri2_vec)
         
     def forward(self, input: Tensor) -> Tensor:
         U1 = self._tri_vec_to_mat(self.tri1_vec, self.in_channels // self.groups)
         U2 = self._tri_vec_to_mat(self.tri2_vec, self.kernel_size[0] * self.kernel_size[1])
-        U = torch.kron(U1, U2)
-        U = self._exp_diag(U)
+        # U = torch.kron(U1, U2)
+
+        composite_weight = _contract(self.weight, U1.T, 1)
+        # flatten over filter dims and contract
+        composite_weight = _contract(torch.flatten(self.weight, -2, -1), U2.T, -1)
         
-        matrix_shape = (self.out_channels, self.in_features)
-        composite_weight = torch.reshape(
-            torch.reshape(self.weight, matrix_shape) @ U,
-            self.weight.shape
-        )
+        # matrix_shape = (self.out_channels, self.in_features)
+        # composite_weight = torch.reshape(
+        #     torch.reshape(self.weight, matrix_shape) @ U,
+        #     self.weight.shape
+        # )
         
         return self._conv_forward(input, composite_weight, self.bias)
 
+    def _contract(tensor, matrix, axis):
+        """tensor is (..., D, ...), matrix is (P, D), returns (..., P, ...)."""
+        t = torch.moveaxis(tensor, source=axis, destination=-1)  # (..., D)
+        r = t @ matrix.T  # (..., P)
+        return torch.moveaxis(r, source=-1, destination=axis)  # (..., P, ...)
+    
     def _tri_vec_to_mat(self, vec, n):
         U = torch.zeros((n, n), **self.factory_kwargs)
         U[torch.triu_indices(n, n, **self.factory_kwargs).tolist()] = vec
-        # TODO(kamdh): experiment with this placement versus after kron
-        # U = self._exp_diag(U)
+        U = self._exp_diag(U)
         return U
 
     def _exp_diag(self, mat):
@@ -169,6 +191,7 @@ class FactConv2d(nn.Conv2d):
         n = mat.shape[0]
         mat[range(n), range(n)] = exp_diag
         return mat
+
 
 def V1_init(layer, size, spatial_freq, center, scale=1., bias=False, seed=None,
             device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
