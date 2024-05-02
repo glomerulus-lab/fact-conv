@@ -36,28 +36,29 @@ def return_hook():
 # theirs wa false, aca true (conv)
 # theirs wa false aca false (conv) [Just Random]
 # theirs was true aca false (conv)
-class rainbow_sampler:
-    def __init__(self, net, net_new, args, device, trainloader, num_classes=10, verbose=True):
-        self.net = copy.deepcopy(net)
-        self.net_new = copy.deepcopy(net_new)
-        self.seed = args.seed
-        self.sampling = args.sampling
-        self.wa = args.wa
-        self.in_wa = args.in_wa
-        self.aca = args.aca 
-        self.device = device
+class RainbowSampler:
+    def __init__(self, ref_net, trainloader, seed=0, sampling='structured_alignment', wa=True, in_wa=True, aca=True, device=None, num_classes=10, verbose=True):
+        self.ref_net = copy.deepcopy(ref_net)
+        self.gen_net = copy.deepcopy(ref_net)
         self.trainloader = trainloader
+        self.seed = seed
+        self.sampling = sampling
+        self.wa = wa
+        self.in_wa = in_wa
+        self.aca = aca 
+        self.device = torch.get_default_device() if device is None else torch.device(device) 
         self.num_classes = num_classes
         logging.basicConfig(level=logging.INFO if verbose else logging.WARNING,
                 format='%(message)s')
 
-    def do_rainbow_sampling(self):
+    def sample(self):
         set_seeds(self.seed)
-        self.net.train()
-        self.net_new = copy.deepcopy(self.net)
-        self.net_new.train()
+        self.ref_net.train()
+        self.gen_net = copy.deepcopy(self.ref_net)
+        self.gen_net.train()
         logging.info("With seed {}".format(self.seed))
-        self.our_rainbow_sampling(self.net, self.net_new)
+        self.our_rainbow_sampling(self.ref_net, self.gen_net)
+        return self.gen_net
 
     def load_state_dicts(self, m1, m2, new_module):
         # reference model state dict
@@ -131,11 +132,11 @@ class rainbow_sampler:
         for batch_idx, (inputs, targets) in enumerate(self.trainloader):
             inputs, targets = inputs.to(self.device), targets.to(self.device)
             try:
-                outputs1 = self.net(inputs)
+                outputs1 = self.ref_net(inputs)
             except Exception:
                 pass
             try:
-                outputs2 = self.net_new(inputs)
+                outputs2 = self.gen_net(inputs)
             except Exception:
                 pass
             if calc_covar:
