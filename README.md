@@ -1,5 +1,5 @@
 # Learning and Aligning Structured Random Feature Networks
-This is the repo for the Learning and Aligning Structured Random Feature Networks paper, accepted at the ICLR Re-Align 2024 workshop. The important code relevant to the paper is located in the `FactConv` directory.
+This is the repo for the Learning and Aligning Structured Random Feature Networks paper, accepted at the ICLR Re-Align 2024 workshop. The important code used in the paper is located in the `FactConv` directory.
 
 ## Factorized Random Feature Convolutions
 Our Factorized Covariance module is located in `FactConv/conv_modules.py` and can be called similarly to a nn.Conv2d module, like so `m = FactConv2d(in_channels=3, out_channels=32, kernel_size=(3,3))`. 
@@ -37,4 +37,3 @@ year={2024},
 url={https://openreview.net/forum?id=vWhUQXQoFF}
 }
 ```
-
