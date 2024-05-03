@@ -14,12 +14,18 @@ from distutils.util import strtobool
 from models import define_models
 
 def save_model(args, model):
-    src= "../saved-models/ResNets/"
+    src= "/home/mila/v/vivian.white/scratch/v1-models/saved-models/test_refactor/"
     model_dir =  src + args.name
     os.makedirs(model_dir, exist_ok=True)
+    os.chdir(model_dir)
     
-    torch.save(model.state_dict(), model_dir+ "/model.pt")
-    torch.save(args, model_dir+ "/args.pt")
+    #saves loss & accuracy in the trial directory -- all trials
+    trial_dir = model_dir + "/trial_" + str(1)
+    os.makedirs(trial_dir, exist_ok=True)
+    os.chdir(trial_dir)
+    
+    torch.save(model.state_dict(), trial_dir+ "/model.pt")
+    torch.save(args, trial_dir+ "/args.pt")
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
@@ -76,7 +82,7 @@ print("Net: ", net)
 set_seeds(args.seed)
 
 net = net.to(device)
-wandb_dir = "../../wandb"
+wandb_dir = "/home/mila/v/vivian.white/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
