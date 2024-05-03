@@ -43,7 +43,7 @@ def test(model, device, test_loader, epoch):
 
     return test_loss, accuracy
 def save_model(args, model, loss, accuracy):
-    src = "../../saved-models/CIFAR10/"
+    src = "/research/harris/vivian/v1-models/saved-models/CIFAR10/"
     model_dir =  src + args.name
     if not os.path.exists(model_dir): 
         os.makedirs(model_dir)
@@ -110,19 +110,21 @@ if __name__ == '__main__':
 
     train_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10(
-            root=scattering_datasets.get_dataset_dir('CIFAR'), 
+            #root=scattering_datasets.get_dataset_dir('CIFAR'), 
+            root="/research/harris/vivian/v1-models/datasets/new_CIFAR10",
             train=True,
                          transform=transforms.Compose([
                              transforms.RandomHorizontalFlip(),
                              transforms.RandomCrop(32, 4),
                              transforms.ToTensor(),
                              normalize,
-                         ]), download=True),
+                         ]), download=False),
         batch_size=512, shuffle=True, num_workers=num_workers, pin_memory=pin_memory)
 
     test_loader = torch.utils.data.DataLoader(
         datasets.CIFAR10(
-            root=scattering_datasets.get_dataset_dir('CIFAR'), 
+            root="/research/harris/vivian/v1-models/datasets/new_CIFAR10",
+            #root=scattering_datasets.get_dataset_dir('CIFAR'), 
             train=False,
                          transform=transforms.Compose([
                              transforms.ToTensor(),

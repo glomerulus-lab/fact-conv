@@ -46,7 +46,7 @@ def test(model, device, test_loader, epoch):
 
     return test_loss, accuracy
 def save_model(args, model, loss, accuracy):
-    src = "../../saved-models/CIFAR10_50_Samples/"
+    src = "/research/harris/vivian/v1-models/saved-models/CIFAR10_50_Samples/"
     model_dir =  src + args.name
     if not os.path.exists(model_dir): 
         os.makedirs(model_dir)
