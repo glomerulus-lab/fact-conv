@@ -21,6 +21,8 @@ To use our factorized ResNet in our rainbow sampling procedure as outlined in "L
 
 To do the rainbow sampling procedure of "A Rainbow in Deep Network Black Boxes" by Guth et al., specify `RainbowSampler(..., sampling='cc_specification', wa=False, aca=True)`. This is specified specifically for networks using nn.Conv2d modules. 
 
+[This google drive link]([url](https://drive.google.com/drive/folders/10nCfKAoX_ghrm4G-oxbZg2_UIyNyaL1W?usp=sharing)) contains our pretrained ResNet18 networks, both convolutional and factorized convolutional models.
+
 # Cite Us
 
 If you found this repository or our paper helpful, please cite us as shown below:
