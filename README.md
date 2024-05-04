@@ -1,5 +1,5 @@
 # Learning and Aligning Structured Random Feature Networks
-This is the repo for the Learning and Aligning Structured Random Feature Networks paper, accepted at the ICLR Re-Align 2024 workshop. The important code used in the paper is located in the `FactConv` directory.
+This is the repo for the Learning and Aligning Structured Random Feature Networks paper, accepted at the ICLR Re-Align 2024 workshop. The code for our factorized covariance and rainbow sampling methods can be found in the `FactConv` directory and the code for Randomized Scattering Networks can be found in `RSN_experiments`. 
 
 ## Factorized Random Feature Convolutions
 Our Factorized Covariance module is located in `FactConv/conv_modules.py` and can be called similarly to a nn.Conv2d module, like so `m = FactConv2d(in_channels=3, out_channels=32, kernel_size=(3,3))`. 
@@ -19,9 +19,7 @@ rainbow_net = R.sample()
 
 To use our factorized ResNet in our rainbow sampling procedure as outlined in "Learning and Aligning Structured Random Feature Networks" by White et al., specify `RainbowSampler(..., sampling='structured_alignment', wa=True, in_wa=True, aca=True)`. This can be specified for both FactConv2d and nn.Conv2d modules.
 
-To do the rainbow sampling procedure of "A Rainbow in Deep Network Black Boxes" by Guth et al., specify `RainbowSampler(..., sampling='cc_specification', wa=False, aca=True)`. This is specified specifically for networks using nn.Conv2d modules.
-
-We provide our trained ResNets and Fact-Conv variants in this google drive link. 
+To do the rainbow sampling procedure of "A Rainbow in Deep Network Black Boxes" by Guth et al., specify `RainbowSampler(..., sampling='cc_specification', wa=False, aca=True)`. This is specified specifically for networks using nn.Conv2d modules. 
 
 # Cite Us
 
