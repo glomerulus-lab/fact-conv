@@ -14,7 +14,7 @@ from distutils.util import strtobool
 from models import define_models
 
 def save_model(args, model):
-    src= "../../saved-models/ResNets/"
+    src= "../saved-models/ResNets/"
     model_dir =  src + args.name
     os.makedirs(model_dir, exist_ok=True)
     os.chdir(model_dir)
@@ -34,7 +34,7 @@ parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
 parser.add_argument('--net', type=str, default='resnet18', help="which model to use")
 parser.add_argument('--num_epochs', type=int, default=200, help='number of trainepochs')
-parser.add_argument('--name', type=str, default='TESTING_VGG', 
+parser.add_argument('--name', type=str, default='ResNet', 
                         help='filename for saved model')
 parser.add_argument('--seed', default=0, type=int, help='seed to use')
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
