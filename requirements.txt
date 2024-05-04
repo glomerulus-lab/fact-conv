@@ -1,0 +1,13 @@
+auto_mix_prep==0.2.0
+kymatio==0.3.0
+matplotlib==3.7.2
+numpy==1.24.4
+Pillow==10.0.0
+Pillow==10.3.0
+pytorch_memlab==0.3.0
+scikit_learn==1.3.0
+scipy==1.13.0
+setuptools==68.0.0
+torch==2.0.1
+torchvision==0.15.2
+wandb==0.16.1
