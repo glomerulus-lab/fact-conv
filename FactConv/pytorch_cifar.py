@@ -14,7 +14,7 @@ from distutils.util import strtobool
 from models import define_models
 
 def save_model(args, model):
-    src= "/home/mila/v/vivian.white/scratch/v1-models/saved-models/test_refactor/"
+    src= "../../saved-models/ResNets/"
     model_dir =  src + args.name
     os.makedirs(model_dir, exist_ok=True)
     os.chdir(model_dir)
@@ -82,11 +82,11 @@ print("Net: ", net)
 set_seeds(args.seed)
 
 net = net.to(device)
-wandb_dir = "/home/mila/v/vivian.white/scratch/v1-models/wandb"
+wandb_dir = "../../wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
-run = wandb.init(project="refactoring", config=args,
+run = wandb.init(project="FactConv", config=args,
         group="pytorch_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
