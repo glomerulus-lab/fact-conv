@@ -14,7 +14,7 @@ from distutils.util import strtobool
 from models import define_models
 
 def save_model(args, model):
-    src= "../../saved-models/ResNets/"
+    src= "../saved-models/ResNets/"
     model_dir =  src + args.name
     os.makedirs(model_dir, exist_ok=True)
     os.chdir(model_dir)
