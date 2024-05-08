@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from conv_modules import FactConv2d
+from conv_modules import FactConv2d, DiagFactConv2d
 from V1_covariance import V1_init
 
 
@@ -36,6 +36,29 @@ def replace_layers_factconv2d(model):
             new_module.load_state_dict(new_sd)
             return new_module
     return recurse_preorder(model, _replace_layers_factconv2d)
+
+
+def replace_layers_diagfactconv2d(model):
+    '''
+    Replace nn.Conv2d layers with DiagFactConv2d
+    '''
+    def _replace_layers_diagfactconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = DiagFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            return new_module
+    return recurse_preorder(model, _replace_layers_diagfactconv2d)
 
 
 def replace_affines(model):
