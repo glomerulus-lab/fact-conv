@@ -7,15 +7,17 @@ for i in ${width[@]}
 do
   for j in ${seed[@]}
   do
-      sbatch setoff.sh  --width $i --seed $j --net resnet18  
-      sbatch setoff.sh  --width $i --seed $j --net fact_resnet18
-      sbatch setoff.sh  --width $i --seed $j --net fact_us_resnet18
-      sbatch setoff.sh  --width $i --seed $j --net fact_uc_resnet18
-      sbatch setoff.sh  --width $i --seed $j --net fact_us_uc_resnet18
+      #sbatch setoff.sh  --width $i --seed $j --net resnet18  
+      #sbatch setoff.sh  --width $i --seed $j --net fact_resnet18
+      #sbatch setoff.sh  --width $i --seed $j --net fact_us_resnet18
+      #sbatch setoff.sh  --width $i --seed $j --net fact_uc_resnet18
+      #sbatch setoff.sh  --width $i --seed $j --net fact_us_uc_resnet18
       # WHERE IS THIS VIVIAN 🧐🧐🤨🤨
-      #sbatch setoff.sh  --width $i --seed $j --net fact_diag_us_resnet18
-      #sbatch setoff.sh  --width $i --seed $j --net fact_diag_uc_resnet18
-      #sbatch setoff.sh  --width $i --seed $j --net fact_diag_us_uc_resnet18
+      # NVM good job Vivian
+      sbatch setoff.sh  --width $i --seed $j --net fact_diag_resnet18
+      sbatch setoff.sh  --width $i --seed $j --net fact_diag_us_resnet18
+      sbatch setoff.sh  --width $i --seed $j --net fact_diag_uc_resnet18
+      sbatch setoff.sh  --width $i --seed $j --net fact_diag_us_uc_resnet18
     done
 done
 

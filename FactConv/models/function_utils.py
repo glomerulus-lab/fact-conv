@@ -172,7 +172,7 @@ def turn_off_covar_grad(model, covariance):
     channel or spatial covariance learning
     '''
     def _turn_off_covar_grad(module):
-        if isinstance(module, FactConv2d):
+        if isinstance(module, FactConv2d) or isinstance(module, DiagFactConv2d):
             for name, param in module.named_parameters():
                 if covariance == "channel":
                     if "tri1_vec" in name:
