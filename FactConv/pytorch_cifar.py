@@ -70,7 +70,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 
 net = define_models(args)
-run_name = args.net
+run_name = "{}_width_{}_seed_{}".format(args.net, args.width, args.seed)
 print("Args.net: ", args.net)
 print("Net: ", net)
 set_seeds(args.seed)
@@ -81,7 +81,7 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", config=args,
-        group="pytorch_cifar", name=run_name, dir=wandb_dir)
+        group="testing", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 
