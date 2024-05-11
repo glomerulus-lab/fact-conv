@@ -1,4 +1,4 @@
-#Model w/ weights initialized according to V1 receptive fields
+# Script to run RSN models with Learnable Covariance on CIFAR100
 
 import torch
 import torch.optim
@@ -44,7 +44,7 @@ def test(model, device, test_loader, epoch):
     return test_loss, accuracy
 
 def save_model(args, model, loss, accuracy):
-    src = "/research/harris/vivian/v1-models/saved-models/CIFAR100/"
+    src = "../../saved-models/CIFAR100/"
     model_dir =  src + args.name
     if not os.path.exists(model_dir): 
         os.makedirs(model_dir)
