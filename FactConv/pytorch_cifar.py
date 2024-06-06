@@ -81,7 +81,7 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", config=args,
-        group="testing", name=run_name, dir=wandb_dir)
+        group="testing_stuff", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 
