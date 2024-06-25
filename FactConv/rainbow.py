@@ -10,7 +10,7 @@ from conv_modules import FactConv2d
 
 #traditional way of calculating svd. can be a bit unstable sometimes tho
 def calc_svd(A, name=''):
-    u, s, vh = torch.linalg.svd(A, full_matrices=False)  # (C_in_reference, R), (R,), (R, C_in_generated)
+    u, s, vh = torch.linalg.svd(A, full_matrices=False, driver="gesvd")  # (C_in_reference, R), (R,), (R, C_in_generated)
     alignment = u  @ vh  # (C_in_reference, C_in_generated)
     return alignment, (u, s, vh)
  

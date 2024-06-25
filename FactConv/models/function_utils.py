@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
-from conv_modules import FactConv2d, FactProjConv2d, DiagFactConv2d, DiagChanFactConv2d
+from conv_modules import FactConv2d, FactProjConv2d, DiagFactConv2d,\
+DiagChanFactConv2d, ResamplingDoubleFactConv2d, OffFactConv2d 
+from align import Alignment
 from V1_covariance import V1_init
 
 
@@ -59,6 +61,29 @@ def replace_layers_factprojconv2d(model):
             return new_module
     return recurse_preorder(model, _replace_layers_factprojconv2d)
 
+
+
+def replace_layers_offfactconv2d(model):
+    '''
+    Replace nn.Conv2d layers with DiagFactConv2d
+    '''
+    def _replace_layers_offfactconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = OffFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            return new_module
+    return recurse_preorder(model, _replace_layers_offfactconv2d)
 
 
 
@@ -121,6 +146,32 @@ def replace_affines(model):
                     track_running_stats=module.track_running_stats)
             return new_module
     return recurse_preorder(model, _replace_affines)
+
+def replace_layers_resample_align(model, detach=False):
+    '''
+    Replace nn.Conv2d layers with resampling factconv and alignment
+    '''
+    def _replace_layers_resample_align(module):
+        if isinstance(module, nn.Conv2d):
+            new_module = ResamplingDoubleFactConv2d(
+                    in_channels=int(module.in_channels),
+                    out_channels=int(module.out_channels),
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    groups = module.groups,
+                    bias=True if module.bias is not None else False)
+            if module.in_channels != 3:
+                new_module = nn.Sequential(Alignment(module.in_channels, detach), new_module)
+            return new_module
+        if isinstance(module, nn.Linear):
+            new_module = nn.Sequential(Alignment(module.in_features, detach),
+                    nn.Linear(int(module.in_features), 10))
+            return new_module
+    return recurse_preorder(model, _replace_layers_resample_align)
+
+
+
+
 
 
 def replace_layers_scale(model, scale=1):
@@ -218,7 +269,7 @@ def turn_off_covar_grad(model, covariance):
     channel or spatial covariance learning
     '''
     def _turn_off_covar_grad(module):
-        if isinstance(module, FactConv2d) or isinstance(module, DiagFactConv2d):
+        if isinstance(module, FactConv2d) or isinstance(module, DiagFactConv2d)  or isinstance(module, OffFactConv2d):
             for name, param in module.named_parameters():
                 if covariance == "channel":
                     if "tri1_vec" in name:
