@@ -74,7 +74,7 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 
 net = define_models(args)
-run_name = "{}_width_{}_seed_{}".format(args.net, args.width, args.seed)
+run_name = "{}_{}_seed_{}".format(args.net, args.channel_k, args.seed)
 print("Args.net: ", args.net)
 print("Net: ", net)
 
@@ -88,7 +88,7 @@ os.chdir(wandb_dir)
 print("Num Learnable Params: ", sum(p.numel() for p in net.parameters() if
     p.requires_grad))
 
-run = wandb.init(project="factconv", config=args, group="covtest", name=run_name, dir=wandb_dir)
+run = wandb.init(project="factconv", config=args, group="lowrank", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 
