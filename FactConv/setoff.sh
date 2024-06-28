@@ -7,7 +7,7 @@
 #SBATCH --output slurm/%j.out
 #SBATCH --partition long
 
-module load python/3.8
-source ../refactor/env/bin/activate
-echo "$@"
-CUDA_VISIBLE_DEVICES=0 python pytorch_cifar.py "$@"
+module load anaconda/3
+conda activate random_features
+
+python pytorch_cifar.py --channel_k $1 --seed $2 --net $3

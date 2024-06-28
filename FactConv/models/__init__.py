@@ -3,7 +3,7 @@ from .LC_models import LC_CIFAR10
 from .function_utils import replace_layers_factconv2d,\
 replace_layers_diagfactconv2d, replace_layers_diagchanfactconv2d,\
 turn_off_covar_grad, replace_layers_scale, init_V1_layers,\
-replace_layers_lowrank
+replace_layers_lowrank, replace_layers_lowrankplusdiag
 
 
 def define_models(args):
@@ -26,6 +26,9 @@ def define_models(args):
     if 'lowrank' in args.net:
         replace_layers_lowrank(model, args.spatial_k, args.channel_k)
         print("Low rank")
+    if 'lr-diag' in args.net:
+        replace_layers_lowrankplusdiag(model, args.spatial_k, args.channel_k)
+        print("Low rank plus diag")
     if "v1" in args.net:
         init_V1_layers(model, bias=False)
     if "us" in args.net:

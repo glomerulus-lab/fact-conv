@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from conv_modules import FactConv2d, DiagFactConv2d, DiagChanFactConv2d,\
-LowRankFactConv2d
-from cov import Covariance, LowRankCovariance
+LowRankFactConv2d, LowRankPlusDiagFactConv2d
+from cov import Covariance, LowRankCovariance, LowRankPlusDiagCovariance
 from V1_covariance import V1_init
 
 
@@ -198,7 +198,8 @@ def turn_off_covar_grad(model, covariance):
     '''
     def _turn_off_covar_grad(module):
         if isinstance(module, FactConv2d) or isinstance(module, DiagFactConv2d)\
-        or isinstance(module, DiagChanFactConv2d) or isinstance(module, LowRankFactConv2d):
+        or isinstance(module, DiagChanFactConv2d) or isinstance(module,LowRankFactConv2d)\
+        or isinstance(module, LowRankPlusDiagFactConv2d):
             for name, mod in module.named_modules():
                 if isinstance(mod, Covariance):
                     if covariance == name:
@@ -271,3 +272,27 @@ def replace_layers_lowrank(model, spatial_k, channel_k):
             new_module.load_state_dict(new_sd)
             return new_module
     return recurse_preorder(model, _replace_layers_lowrank)
+
+
+def replace_layers_lowrankplusdiag(model, spatial_k, channel_k):
+    '''
+    Replace nn.Conv2d layers with LowRankFactConv2d
+    '''
+    def _replace_layers_lowrankplusdiag(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = LowRankPlusDiagFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    spatial_k=spatial_k, channel_k=channel_k,
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            return new_module
+    return recurse_preorder(model, _replace_layers_lowrankplusdiag)

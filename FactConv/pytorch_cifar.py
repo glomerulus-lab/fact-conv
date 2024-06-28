@@ -88,7 +88,7 @@ os.chdir(wandb_dir)
 print("Num Learnable Params: ", sum(p.numel() for p in net.parameters() if
     p.requires_grad))
 
-run = wandb.init(project="factconv", config=args, group="lowrank", name=run_name, dir=wandb_dir)
+run = wandb.init(project="factconv", config=args, group="lowrankplusdiag", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 
