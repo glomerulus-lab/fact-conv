@@ -14,7 +14,6 @@ from distutils.util import strtobool
 from models import define_models
 
 def save_model(args, model):
-    #src= "../saved-models/ResNets/"
     src="/home/mila/v/vivian.white/scratch/v1-models/saved-models/low-rank/"
     model_dir =  src + args.net + "-seed" + str(args.seed)
     print("Model dir: ", model_dir)
@@ -85,12 +84,15 @@ wandb_dir = "/home/mila/v/vivian.white/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
-print("Num Learnable Params: ", sum(p.numel() for p in net.parameters() if
-    p.requires_grad))
+param_count = sum(p.numel() for p in net.parameters() if p.requires_grad)
+
+print("Num Learnable Params: ", param_count)
+
 
 run = wandb.init(project="factconv", config=args, group="lowrankplusdiag", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
+run.log({'param_count':param_count})
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
@@ -119,6 +121,9 @@ def train(epoch):
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+         
+        acc = 100.*correct/total
+        run.log({"train_accuracy":acc})
 
 def test(epoch):
     global best_acc
@@ -142,7 +147,7 @@ def test(epoch):
 
     # Save checkpoint.
     acc = 100.*correct/total
-    run.log({"accuracy":acc})
+    run.log({"test_accuracy":acc})
     if acc > best_acc:
         print('Saving..')
         state = {
