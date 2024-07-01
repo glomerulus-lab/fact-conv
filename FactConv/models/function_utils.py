@@ -195,20 +195,17 @@ def replace_layers_fact_with_conv(model):
 def turn_off_covar_grad(model, covariance):
     print("Unlearnable ", covariance)
     '''
-    Turn off gradients in tri1_vec or tri2_vec to turn off
-    channel or spatial covariance learning
+    Turn off gradients in the tri_vec param in
+    the Covariance module to disable channel 
+    or spatial covariance learning
     '''
-    # TODO: update to check if Covariance module, not Fact
     def _turn_off_covar_grad(module):
-        if isinstance(module, FactConv2d) or isinstance(module, DiagFactConv2d)\
-        or isinstance(module, DiagChanFactConv2d) or isinstance(module,LowRankFactConv2d)\
-        or isinstance(module, LowRankPlusDiagFactConv2d):
-            for name, mod in module.named_modules():
-                if isinstance(mod, Covariance):
-                    if covariance == name:
-                        for name, param in mod.named_parameters():
-                            if "tri_vec" in name:
-                                param.requires_grad = False
+        for name, mod in module.named_modules():
+            if isinstance(mod, Covariance):
+                if covariance == name:
+                    for name, param in mod.named_parameters():
+                        if "tri_vec" in name:
+                            param.requires_grad = False
                         
     return recurse_preorder(model, _turn_off_covar_grad)
     
