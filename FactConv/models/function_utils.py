@@ -147,7 +147,7 @@ def replace_affines(model):
             return new_module
     return recurse_preorder(model, _replace_affines)
 
-def replace_layers_resample_align(model, detach=False):
+def replace_layers_resample_align(model, rank, detach=False):
     '''
     Replace nn.Conv2d layers with resampling factconv and alignment
     '''
@@ -160,13 +160,12 @@ def replace_layers_resample_align(model, detach=False):
                     stride=module.stride, padding=module.padding, 
                     groups = module.groups,
                     bias=True if module.bias is not None else False)
-            if module.in_channels != 3:
-                new_module = nn.Sequential(Alignment(module.in_channels, detach), new_module)
             return new_module
-        if isinstance(module, nn.Linear):
-            new_module = nn.Sequential(Alignment(module.in_features, detach),
-                    nn.Linear(int(module.in_features), 10))
+        if isinstance(module, nn.BatchNorm2d):
+            new_module = nn.Sequential(Alignment(module.num_features, rank), nn.BatchNorm2d(int(module.num_features),
+                    affine=module.affine))
             return new_module
+ 
     return recurse_preorder(model, _replace_layers_resample_align)
 
 

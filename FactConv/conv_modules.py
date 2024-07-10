@@ -85,6 +85,7 @@ class FactConv2d(nn.Conv2d):
         U = torch.diagonal_scatter(U, U.diagonal().exp_())
         return U
 
+
 class ResamplingDoubleFactConv2d(nn.Conv2d):
     def __init__(
         self,
@@ -155,15 +156,18 @@ class ResamplingDoubleFactConv2d(nn.Conv2d):
         ).reshape(self.weight.shape)
         x2 = self._conv_forward(input, composite_weight, self.bias)
 
-        nn.init.orthogonal_(self.resampling_weight)
+        #nn.init.orthogonal_(self.resampling_weight)
         composite_resampling_weight = _contract(self.resampling_weight, U1.T, 1)
         composite_resampling_weight = _contract(
             torch.flatten(composite_resampling_weight, -2, -1), U2.T, -1
         ).reshape(self.weight.shape)
         x1 = self._conv_forward(input, composite_resampling_weight, self.bias)
-        return torch.cat([x1, x2], dim=0)
+        return torch.cat([x1, x2], dim=1)
 
- 
+
+    def resample(self):
+        nn.init.orthogonal_(self.resampling_weight)
+
 
     def _tri_vec_to_mat(self, vec, n, scat_idx):
         U = self.weight.new_zeros((n*n)).scatter_(0, scat_idx, vec).view(n, n)
