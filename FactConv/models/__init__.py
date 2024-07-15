@@ -4,7 +4,8 @@ from .function_utils import replace_layers_factconv2d,\
 replace_layers_diagfactconv2d, replace_layers_diagchanfactconv2d,\
 turn_off_covar_grad, replace_layers_scale, init_V1_layers,\
 replace_layers_lowrank, replace_layers_lowrankplusdiag,\
-replace_layers_lowrankK1, replace_layers_offdiag
+replace_layers_lowrankK1, replace_layers_offdiag,\
+replace_affines
 
 
 def define_models(args):
@@ -17,19 +18,21 @@ def define_models(args):
     if args.width != 1:
         replace_layers_scale(model, args.width)
     if 'fact' in args.net:
-       replace_layers_factconv2d(model)
+       replace_layers_factconv2d(model, args.nonlinearity)
     if 'diag' in args.net:
-        replace_layers_diagfactconv2d(model)
+        replace_layers_diagfactconv2d(model, args.nonlinearity)
     if 'diagchan' in args.net:
-        replace_layers_diagchanfactconv2d(model)
+        replace_layers_diagchanfactconv2d(model, args.nonlinearity)
     if 'lowrank' in args.net:
         replace_layers_lowrank(model, args.spatial_k, args.channel_k)
     if 'lr-diag' in args.net:
         replace_layers_lowrankplusdiag(model)
     if 'lr-K1' in args.net:
-        replace_layers_lowrankK1(model, args.channel_k)
+        replace_layers_lowrankK1(model, args.channel_k, args.nonlinearity)
+    if 'no-affines' in args.net:
+        replace_affines(model)
     if 'offdiag' in args.net:
-        replace_layers_offdiag(model)
+        replace_layers_offdiag(model, args.nonlinearity)
     if 'v1' in args.net:
         init_V1_layers(model, bias=False)
     if 'us' in args.net:

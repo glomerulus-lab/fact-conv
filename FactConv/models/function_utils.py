@@ -19,7 +19,7 @@ def recurse_preorder(model, callback):
     return model
 
 
-def replace_layers_factconv2d(model):
+def replace_layers_factconv2d(model, nonlinearity):
     '''
     Replace nn.Conv2d layers with FactConv2d
     '''
@@ -28,6 +28,7 @@ def replace_layers_factconv2d(model):
             ## simple module
             new_module = FactConv2d(
                     in_channels=module.in_channels,
+                    nonlinearity=nonlinearity,
                     out_channels=module.out_channels,
                     kernel_size=module.kernel_size,
                     stride=module.stride, padding=module.padding, 
@@ -42,7 +43,7 @@ def replace_layers_factconv2d(model):
     return recurse_preorder(model, _replace_layers_factconv2d)
 
 
-def replace_layers_diagfactconv2d(model):
+def replace_layers_diagfactconv2d(model, nonlinearity):
     '''
     Replace nn.Conv2d layers with DiagFactConv2d
     '''
@@ -51,6 +52,7 @@ def replace_layers_diagfactconv2d(model):
             ## simple module
             new_module = DiagFactConv2d(
                     in_channels=module.in_channels,
+                    nonlinearity=nonlinearity,
                     out_channels=module.out_channels,
                     kernel_size=module.kernel_size,
                     stride=module.stride, padding=module.padding, 
@@ -64,7 +66,7 @@ def replace_layers_diagfactconv2d(model):
             return new_module
     return recurse_preorder(model, _replace_layers_diagfactconv2d)
 
-def replace_layers_diagchanfactconv2d(model):
+def replace_layers_diagchanfactconv2d(model,nonlinearity):
     '''
     Replace nn.Conv2d layers with DiagChanFactConv2d
     '''
@@ -75,6 +77,7 @@ def replace_layers_diagchanfactconv2d(model):
                     in_channels=module.in_channels,
                     out_channels=module.out_channels,
                     kernel_size=module.kernel_size,
+                    nonlinearity=nonlinearity,
                     stride=module.stride, padding=module.padding, 
                     bias=True if module.bias is not None else False)
             old_sd = module.state_dict()
@@ -288,7 +291,7 @@ def replace_layers_lowrankplusdiag(model, channel_k):
             return new_module
     return recurse_preorder(model, _replace_layers_lowrankplusdiag)
 
-def replace_layers_lowrankK1(model, channel_k):
+def replace_layers_lowrankK1(model, channel_k, nonlinearity):
     '''
     Replace nn.Conv2d layers with LowRankK1FactConv2d
     '''
@@ -300,7 +303,7 @@ def replace_layers_lowrankK1(model, channel_k):
                     out_channels=module.out_channels,
                     kernel_size=module.kernel_size,
                     stride=module.stride, padding=module.padding, 
-                    channel_k=channel_k,
+                    channel_k=channel_k, nonlinearity=nonlinearity,
                     bias=True if module.bias is not None else False)
             old_sd = module.state_dict()
             new_sd = new_module.state_dict()
@@ -311,7 +314,7 @@ def replace_layers_lowrankK1(model, channel_k):
             return new_module
     return recurse_preorder(model, _replace_layers_lowrankK1)
 
-def replace_layers_offdiag(model):
+def replace_layers_offdiag(model, nonlinearity):
     '''
     Replace nn.Conv2d layers with OffDiagFactConv2d
     '''
@@ -323,6 +326,7 @@ def replace_layers_offdiag(model):
                     out_channels=module.out_channels,
                     kernel_size=module.kernel_size,
                     stride=module.stride, padding=module.padding, 
+                    nonlinearity=nonlinearity,
                     bias=True if module.bias is not None else False)
             old_sd = module.state_dict()
             new_sd = new_module.state_dict()

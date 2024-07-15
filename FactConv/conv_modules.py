@@ -5,7 +5,8 @@ from torch.nn.parameter import Parameter
 from torch.nn.common_types import _size_2_t
 from typing import Optional, List, Tuple, Union
 from cov import Covariance, LowRankCovariance, LowRankPlusDiagCovariance,\
-LowRankK1Covariance, OffDiagCovariance, DiagCovariance
+LowRankK1Covariance, OffDiagCovariance, DiagCovariance,\
+LowRankK1DiagCovariance
 
 """ 
 The function below is copied directly from 
@@ -21,6 +22,7 @@ def _contract(tensor, matrix, axis):
 class FactConv2d(nn.Conv2d):
     def __init__(
         self,
+        nonlinearity,
         in_channels: int,
         out_channels: int,
         kernel_size: _size_2_t,
@@ -49,8 +51,8 @@ class FactConv2d(nn.Conv2d):
         channel_triu_size = self.in_channels // self.groups
         spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
 
-        self.channel = Covariance(channel_triu_size)
-        self.spatial = Covariance(spatial_triu_size)
+        self.channel = Covariance(channel_triu_size, nonlinearity)
+        self.spatial = Covariance(spatial_triu_size, nonlinearity)
 
     def forward(self, input: Tensor) -> Tensor:
         U1 = self.channel.sqrt()
@@ -161,6 +163,7 @@ class LowRankK1FactConv2d(nn.Conv2d):
     def __init__(
         self,
         channel_k,
+        nonlinearity,
         in_channels: int,
         out_channels: int,
         kernel_size: _size_2_t,
@@ -183,12 +186,13 @@ class LowRankK1FactConv2d(nn.Conv2d):
         self.register_buffer("weight", new_weight)
         nn.init.kaiming_normal_(self.weight)
         
+        self.channel_k = channel_k
         channel_triu_size = self.in_channels // self.groups
         spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
 
-        self.channel = LowRankK1Covariance(channel_triu_size, self.channel_k)
-        # self.spatial = LowRankCovariance(spatial_triu_size, self.spatial_k)
-        self.spatial = Covariance(spatial_triu_size)
+        self.channel = LowRankK1Covariance(channel_triu_size, self.channel_k,\
+                nonlinearity)
+        self.spatial = Covariance(spatial_triu_size, nonlinearity)
 
 
     def forward(self, input: Tensor) -> Tensor:
@@ -205,6 +209,7 @@ class LowRankK1FactConv2d(nn.Conv2d):
 class OffDiagFactConv2d(nn.Conv2d):
     def __init__(
         self,
+        nonlinearity,
         in_channels: int,
         out_channels: int,
         kernel_size: _size_2_t,
@@ -230,8 +235,8 @@ class OffDiagFactConv2d(nn.Conv2d):
         channel_triu_size = self.in_channels // self.groups
         spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
 
-        self.channel = OffDiagCovariance(channel_triu_size)
-        self.spatial = Covariance(spatial_triu_size)
+        self.channel = OffDiagCovariance(channel_triu_size, nonlinearity)
+        self.spatial = Covariance(spatial_triu_size, nonlinearity)
 
 
     def forward(self, input: Tensor) -> Tensor:
@@ -248,6 +253,7 @@ class OffDiagFactConv2d(nn.Conv2d):
 class DiagFactConv2d(nn.Conv2d):
     def __init__(
         self,
+        nonlinearity,
         in_channels: int,
         out_channels: int,
         kernel_size: _size_2_t,
@@ -273,8 +279,8 @@ class DiagFactConv2d(nn.Conv2d):
         channel_triu_size = self.in_channels // self.groups
         spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
 
-        self.channel = DiagCovariance(channel_triu_size)
-        self.spatial = DiagCovariance(spatial_triu_size)
+        self.channel = DiagCovariance(channel_triu_size, nonlinearity)
+        self.spatial = DiagCovariance(spatial_triu_size, nonlinearity)
 
 
     def forward(self, input: Tensor) -> Tensor:
@@ -291,6 +297,7 @@ class DiagFactConv2d(nn.Conv2d):
 class DiagChanFactConv2d(nn.Conv2d):
     def __init__(
         self,
+        nonlinearity,
         in_channels: int,
         out_channels: int,
         kernel_size: _size_2_t,
@@ -316,8 +323,8 @@ class DiagChanFactConv2d(nn.Conv2d):
         channel_triu_size = self.in_channels // self.groups
         spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
 
-        self.channel = DiagCovariance(channel_triu_size)
-        self.spatial = Covariance(spatial_triu_size)
+        self.channel = DiagCovariance(channel_triu_size, nonlinearity)
+        self.spatial = Covariance(spatial_triu_size, nonlinearity)
 
     def forward(self, input: Tensor) -> Tensor:
         U1 = self.channel.sqrt()
