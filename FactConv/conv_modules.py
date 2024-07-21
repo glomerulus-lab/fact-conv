@@ -62,9 +62,13 @@ class FactConv2d(nn.Conv2d):
         triu2_len = triu2.shape[1]
 
         tri1_vec = self.weight.new_zeros((triu1_len,))
+        diag1 = triu1[0] == triu1[1]
+        tri1_vec[diag1] = 1.0
         self.tri1_vec = Parameter(tri1_vec)
 
         tri2_vec = self.weight.new_zeros((triu2_len,))
+        diag2 = triu2[0] == triu2[1]
+        tri2_vec[diag2] = 1.0
         self.tri2_vec = Parameter(tri2_vec)
 
 
@@ -81,8 +85,8 @@ class FactConv2d(nn.Conv2d):
         return self._conv_forward(input, composite_weight, self.bias)
 
     def _tri_vec_to_mat(self, vec, n, scat_idx):
-        U = self.weight.new_zeros((n*n)).scatter_(0, scat_idx, vec).view(n, n)
-        U = torch.diagonal_scatter(U, U.diagonal().exp_())
+        U = self.weight.new_zeros((n*n)).view(n, n).fill_diagonal_(1.0).view(n*n).scatter_(0, scat_idx, vec).view(n, n)
+        U = torch.diagonal_scatter(U, torch.abs(U.diagonal()))# .exp_()
         return U
 
 
@@ -109,13 +113,13 @@ class ResamplingDoubleFactConv2d(nn.Conv2d):
         new_weight = torch.empty_like(self.weight)
         del self.weight # remove Parameter, create buffer
         self.register_buffer("weight", new_weight)
-        #nn.init.kaiming_normal_(self.weight)
-        nn.init.orthogonal_(self.weight)
+        nn.init.kaiming_normal_(self.weight)
+        #nn.init.orthogonal_(self.weight)
 
         new_weight = torch.empty_like(self.weight)
         self.register_buffer("resampling_weight", new_weight)
-        #nn.init.kaiming_normal_(self.resampling_weight)
-        nn.init.orthogonal_(self.resampling_weight)
+        nn.init.kaiming_normal_(self.resampling_weight)
+        #nn.init.orthogonal_(self.resampling_weight)
         
         self.in_features = self.in_channels // self.groups * \
             self.kernel_size[0] * self.kernel_size[1]
@@ -137,11 +141,17 @@ class ResamplingDoubleFactConv2d(nn.Conv2d):
         triu1_len = triu1.shape[1]
         triu2_len = triu2.shape[1]
 
+
         tri1_vec = self.weight.new_zeros((triu1_len,))
+        diag1 = triu1[0] == triu1[1]
+        tri1_vec[diag1] = 1.0
         self.tri1_vec = Parameter(tri1_vec)
 
         tri2_vec = self.weight.new_zeros((triu2_len,))
+        diag2 = triu2[0] == triu2[1]
+        tri2_vec[diag2] = 1.0
         self.tri2_vec = Parameter(tri2_vec)
+
 
 
     def forward(self, input: Tensor) -> Tensor:
@@ -166,12 +176,13 @@ class ResamplingDoubleFactConv2d(nn.Conv2d):
 
 
     def resample(self):
-        nn.init.orthogonal_(self.resampling_weight)
+        nn.init.kaiming_normal_(self.resampling_weight)
+        #nn.init.orthogonal_(self.resampling_weight)
 
 
     def _tri_vec_to_mat(self, vec, n, scat_idx):
-        U = self.weight.new_zeros((n*n)).scatter_(0, scat_idx, vec).view(n, n)
-        U = torch.diagonal_scatter(U, U.diagonal().exp_())
+        U = self.weight.new_zeros((n*n)).view(n, n).fill_diagonal_(1.0).view(n*n).scatter_(0, scat_idx, vec).view(n, n)
+        U = torch.diagonal_scatter(U, torch.abs(U.diagonal()))# .exp_()
         return U
 
 

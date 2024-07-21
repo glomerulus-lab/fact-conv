@@ -184,13 +184,22 @@ def replace_layers_scale(model, scale=1):
             else:
                 in_scale = scale
             ## simple module
-            new_module = nn.Conv2d(
-                    in_channels=int(module.in_channels*in_scale),
-                    out_channels=int(module.out_channels*scale),
-                    kernel_size=module.kernel_size,
-                    stride=module.stride, padding=module.padding, 
-                    groups = module.groups,
-                    bias=True if module.bias is not None else False)
+            if isinstance(module, ResamplingDoubleFactConv2d):
+                new_module = ResamplingDoubleFactConv2d(
+                        in_channels=int(module.in_channels*in_scale),
+                        out_channels=int(module.out_channels*scale),
+                        kernel_size=module.kernel_size,
+                        stride=module.stride, padding=module.padding, 
+                        groups = module.groups,
+                        bias=True if module.bias is not None else False)
+            else:
+                new_module = nn.Conv2d(
+                        in_channels=int(module.in_channels*in_scale),
+                        out_channels=int(module.out_channels*scale),
+                        kernel_size=module.kernel_size,
+                        stride=module.stride, padding=module.padding, 
+                        groups = module.groups,
+                        bias=True if module.bias is not None else False)
             return new_module
         if isinstance(module, nn.BatchNorm2d):
             new_module = nn.BatchNorm2d(int(module.num_features*scale),
@@ -198,6 +207,10 @@ def replace_layers_scale(model, scale=1):
             return new_module
         if isinstance(module, nn.Linear):
             new_module = nn.Linear(int(module.in_features * scale), 10)
+            return new_module
+        if isinstance(module, Alignment):
+            new_module = Alignment(int(module.rank*scale),
+                    int(module.rank*scale))
             return new_module
     return recurse_preorder(model, _replace_layers_scale)
 
