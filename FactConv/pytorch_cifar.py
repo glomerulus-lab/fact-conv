@@ -14,8 +14,9 @@ from distutils.util import strtobool
 from models import define_models
 
 def save_model(args, model):
-    src= "../saved-models/ResNets/"
-    model_dir =  src + args.name
+    src="/home/mila/v/vivian.white/scratch/v1-models/saved-models/low-rank/"
+    model_dir =  src + args.net + "_" + args.nonlinearity+ "-seed" + str(args.seed)
+    print("Model dir: ", model_dir)
     os.makedirs(model_dir, exist_ok=True)
     
     torch.save(model.state_dict(), model_dir+ "/model.pt")
@@ -32,6 +33,9 @@ parser.add_argument('--name', type=str, default='ResNet',
                         help='filename for saved model')
 parser.add_argument('--seed', default=0, type=int, help='seed to use')
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
+parser.add_argument('--spatial_k', type=float, default=1, help='%spatial low-rank')
+parser.add_argument('--channel_k', type=float, default=1, help='%channel low-rank')
+parser.add_argument('--nonlinearity', type=str, default='exp')
 
 args = parser.parse_args()
 
@@ -70,25 +74,33 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 
 net = define_models(args)
-run_name = args.net
+run_name = "{}_rank{}_seed{}_width{}_{}".format(args.net, args.channel_k, args.seed,\
+        args.width, args.nonlinearity)
 print("Args.net: ", args.net)
 print("Net: ", net)
+
 set_seeds(args.seed)
 
 net = net.to(device)
-wandb_dir = "../../wandb"
+wandb_dir = "/home/mila/v/vivian.white/scratch/v1-models/wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
-run = wandb.init(project="FactConv", config=args,
-        group="pytorch_cifar", name=run_name, dir=wandb_dir)
+param_count = sum(p.numel() for p in net.parameters() if p.requires_grad)
+
+print("Num Learnable Params: ", param_count)
+
+
+run = wandb.init(project="factconv", config=args, group="lowrankabs", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
+run.log({'param_count':param_count})
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,\
+        T_max=args.num_epochs)
 
 # Training
 def train(epoch):
@@ -111,6 +123,9 @@ def train(epoch):
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                      % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+         
+        acc = 100.*correct/total
+        run.log({"train_accuracy":acc})
 
 def test(epoch):
     global best_acc
@@ -134,7 +149,7 @@ def test(epoch):
 
     # Save checkpoint.
     acc = 100.*correct/total
-    run.log({"accuracy":acc})
+    run.log({"test_accuracy":acc})
     if acc > best_acc:
         print('Saving..')
         state = {
