@@ -53,20 +53,16 @@ class NewAlignment(nn.Module):
     def __init__(self, size, rank):
         super().__init__()
         self.svd = SVD.apply
-        #self.bn1 = nn.BatchNorm2d(size)
         self.rank = rank
         if size < rank+1:
-            #self.size = int(size*.50)
             self.size = size//2
         else:
             self.size = rank
         self.cov = torch.zeros((rank,rank)).cuda()
         self.total = 0
-        self.first_time = True
 
     def forward(self, x):
         # changing path
-        #self.bn1.eval()
         x1 = x[:, 0 : x.shape[1]//2, :, :]
         # fixed path
         x2 = x[:, x.shape[1]//2 : , :, :]
@@ -80,17 +76,10 @@ class NewAlignment(nn.Module):
 
         if self.training:
             cov = x1.T@x2
-            #cov = cov/x1.shape[0]
             self.total += x1.shape[0]
             self.cov = cov + self.cov.detach()
-            #self.cov = 0.99*cov + 0.01*self.cov
             temp_cov = self.cov
             temp_total = self.total
-        #else: 
-        #    cov = x1.T@x2
-        #    temp_cov =cov# 0.99*cov +0.01*self.cov 
-        #    temp_total = self.total + x1.shape[0]
-        #U, S, V = self.svd(self.cov/self.total, self.size)
             U, S, V = self.svd(self.cov/self.total, self.size)
 
             V_h = V.T
@@ -125,46 +114,19 @@ class ANewAlignment(nn.Module):
 
     def forward(self, x):
         # changing path
-        #self.bn1.eval()
         x1 = x# = x[:, 0 : x.shape[1]//2, :, :]
         # fixed path
-        #x2 = x[:, x.shape[1]//2 : , :, :]
         
         if x.ndim == 4:
             x1 = x1.permute(0, 2, 3, 1)
             x1 = x1.reshape((-1, x1.shape[-1]))
             
-            #x2 = x2.permute(0, 2, 3, 1)
-            #x2 = x2.reshape((-1, x2.shape[-1]))
-
-        #if self.training and self.first_time:
-        #    cov = x1.T@x2
-        #    #cov = cov/x1.shape[0]
-        #    self.total += x1.shape[0]
-        #    self.cov = cov + self.cov.detach()
-        #    #self.cov = 0.99*cov + 0.01*self.cov
-        #    temp_cov = self.cov
-        #    temp_total = self.total
-        ##else: 
-        ##    cov = x1.T@x2
-        ##    temp_cov =cov# 0.99*cov +0.01*self.cov 
-        ##    temp_total = self.total + x1.shape[0]
-        ##U, S, V = self.svd(self.cov/self.total, self.size)
-        #    U, S, V = self.svd(self.cov/self.total, self.size)
-
-        #    V_h = V.T
-        #    alignment = U  @ V_h
-        #    self.alignment = alignment
-        #else:
         alignment = self.alignment#.detach()
         self.first_time=False
         x1 =  x1@alignment
 
-        #x1 = x1 +x2_mu - scale*x1_mu@alignment
-
         if x.ndim == 4:
             aligned_x = x1.reshape(-1, x.shape[2], x.shape[3],
                 x1.shape[-1]).permute(0, 3, 1, 2)
-        #aligned_x = self.bn1(aligned_x)
         return aligned_x
 

@@ -5,7 +5,8 @@ from .pre_bn_resnet import PostBNResNet18, PostBNResNet9
 from .function_utils import replace_layers_factconv2d,replace_layers_factprojconv2d,\
 replace_layers_diagfactconv2d, replace_layers_diagchanfactconv2d,\
 turn_off_covar_grad, replace_layers_scale, init_V1_layers,\
-replace_layers_resample_align, replace_layers_offfactconv2d
+replace_layers_resample_align, replace_layers_offfactconv2d,\
+replace_layers_bias, replace_layers_gmm
 
 
 def define_models(args):
@@ -25,10 +26,15 @@ def define_models(args):
         model = PostBNResNet18()
     if 'post_bn_aligned_resnet9' in args.net:
         model = PostBNResNet9()
-
+        
 
     if args.width != 1:
         replace_layers_scale(model, args.width)
+    if args.bias == 1:
+        replace_layers_bias(model)
+    if args.gmm >= 1:
+        replace_layers_gmm(model, args.gmm)
+
     if 'fact' in args.net:
        replace_layers_factconv2d(model)
     if 'proj' in args.net:

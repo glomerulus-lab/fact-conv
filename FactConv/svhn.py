@@ -24,6 +24,7 @@ def resample(model):
 def save_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
+    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/SVHN_recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/gmm_rainbow_cifar/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
             args.batchsize, args.rank,
@@ -66,21 +67,25 @@ transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    transforms.Normalize((0.4376821, 0.4437697, 0.47280442),
+                (0.19803012, 0.20101562, 0.19703614))
+
 ])
 
 transform_test = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    #transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    transforms.Normalize((0.4376821, 0.4437697, 0.47280442),
+                (0.19803012, 0.20101562, 0.19703614)),
 ])
 
-trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)
+trainset = torchvision.datasets.SVHN(
+    root='./data', split="train", download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=args.batchsize, shuffle=True,drop_last=True,  num_workers=8)
 
-testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transform_test)
+testset = torchvision.datasets.SVHN(
+    root='./data', split="test", download=True, transform=transform_test)
 testloader = torch.utils.data.DataLoader(
     testset, batch_size=args.batchsize, shuffle=True,drop_last=True, num_workers=8)
 
@@ -104,7 +109,7 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", entity="muawizc", config=args,
-        group="saving_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="saving_align_resnet_SVHN", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 

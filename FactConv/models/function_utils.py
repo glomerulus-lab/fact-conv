@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from conv_modules import FactConv2d, FactProjConv2d, DiagFactConv2d,\
-DiagChanFactConv2d, ResamplingDoubleFactConv2d, OffFactConv2d 
+DiagChanFactConv2d, ResamplingDoubleFactConv2d, OffFactConv2d, GMMFactConv2d
 from align import Alignment
 from V1_covariance import V1_init
 
@@ -209,10 +209,58 @@ def replace_layers_scale(model, scale=1):
             new_module = nn.Linear(int(module.in_features * scale), 10)
             return new_module
         if isinstance(module, Alignment):
+            print(module.size, module.rank, )
             new_module = Alignment(int(module.rank*scale),
                     int(module.rank*scale))
+            print(new_module.size, new_module.rank, )
             return new_module
     return recurse_preorder(model, _replace_layers_scale)
+
+def replace_layers_gmm(model, k=1):
+    '''
+    Replace nn.Conv2d layers with a different scale
+    '''
+    def _replace_layers_gmm(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = GMMFactConv2d(
+                        in_channels=int(module.in_channels),
+                        out_channels=int(module.out_channels),
+                        kernel_size=module.kernel_size,
+                        stride=module.stride, padding=module.padding, 
+                        groups = module.groups,
+                        bias=True, k=k)
+            return new_module
+    return recurse_preorder(model, _replace_layers_gmm)
+
+
+
+def replace_layers_bias(model):
+    '''
+    Replace nn.Conv2d layers with a different scale
+    '''
+    def _replace_layers_bias(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            if isinstance(module, ResamplingDoubleFactConv2d):
+                new_module = ResamplingDoubleFactConv2d(
+                        in_channels=int(module.in_channels),
+                        out_channels=int(module.out_channels),
+                        kernel_size=module.kernel_size,
+                        stride=module.stride, padding=module.padding, 
+                        groups = module.groups,
+                        bias=True)
+            else:
+                new_module = nn.Conv2d(
+                        in_channels=int(module.in_channels),
+                        out_channels=int(module.out_channels),
+                        kernel_size=module.kernel_size,
+                        stride=module.stride, padding=module.padding, 
+                        groups = module.groups,
+                        bias=True)
+            return new_module
+    return recurse_preorder(model, _replace_layers_bias)
+
 
 
 #used in activation cross-covariance calculation

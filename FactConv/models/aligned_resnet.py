@@ -23,42 +23,41 @@ class BasicBlock(nn.Module):
 
     def __init__(self, in_planes, planes, stride=1):
         super(BasicBlock, self).__init__()
-        #self.align1 = Alignment(in_planes, in_planes)
+        self.align1 = Alignment(in_planes, in_planes)
         self.bn1 = nn.BatchNorm2d(in_planes, track_running_stats=True)
         self.conv1 = ResamplingDoubleFactConv2d(
             in_planes, planes, kernel_size=3, stride=stride, padding=1,
             bias=False)
-        self.align1 = Alignment(planes, planes)
+        self.align2 = Alignment(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes, track_running_stats=True)
         self.conv2 = ResamplingDoubleFactConv2d(planes, planes, kernel_size=3,
                                stride=1, padding=1, bias=False)
 
-        self.align2 = Alignment(planes, planes)
+        #self.align2 = Alignment(planes, planes)
 
-        self.bn3 = nn.BatchNorm2d(planes, track_running_stats=True)
+        #self.bn3 = nn.BatchNorm2d(planes, track_running_stats=True)
         self.shortcut = nn.Sequential()#Concat())
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                #nn.BatchNorm2d(in_planes),
+                #Alignment(in_planes, in_planes),
+                #self.align1,
+                #self.bn1,
                 ResamplingDoubleFactConv2d(in_planes, self.expansion*planes,
                           kernel_size=1, stride=stride, bias=False),
-                nn.ReLU(),
-                Alignment(planes, planes),
-                nn.BatchNorm2d(planes, track_running_stats=True),
+                #nn.BatchNorm2d(planes, track_running_stats=True),
             )
 
     def forward(self, x):
-        #x = self.align1(x)
-        x = self.bn1(x)
-        out = F.relu(self.conv1(x))
-        out = F.relu(self.conv2(self.bn2(self.align1(out))))
-        #print(out.shape, x.shape)
-        #print(self.shortcut(x).shape)
-        out = self.bn3(self.align2(out))
-
-    
+        x_align  = self.bn1(self.align1(x))
+        #x_ax = self.bn1(x)
+        out = F.relu(self.conv1(x_align))
+        out = self.conv2(self.bn2(self.align2(out)))
+        if len(self.shortcut) != 0:
+            x = x_align
         out += self.shortcut(x)
         out = F.relu(out)
+        #align?
+
         return out
 
 
@@ -100,14 +99,15 @@ class ResNet(nn.Module):
 
         self.conv1 = ResamplingDoubleFactConv2d(3, 64, kernel_size=3,
                                stride=1, padding=1, bias=False)
-        self.align1 = Alignment(64, 64)
+        #self.align1 = Alignment(64, 64)
         #self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
         #self.align =  Alignment(512*block.expansion, 512*block.expansion)
-        self.align =  nn.Identity()# Alignment(512*block.expansion, 512*block.expansion)
+        #self.align =  nn.Identity()# Alignment(512*block.expansion, 512*block.expansion)
+        self.align =  Alignment(512*block.expansion, 512*block.expansion)
         self.bn_final = nn.BatchNorm2d(512*block.expansion, track_running_stats=True)
         self.linear = nn.Linear(512*block.expansion, num_classes)
 
@@ -121,8 +121,6 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         out = F.relu(self.conv1(x))
-        out = self.align1(out)
-
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)

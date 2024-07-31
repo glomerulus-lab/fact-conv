@@ -104,6 +104,7 @@ def load_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
+    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/SVHN_recent_new_rainbow_cifar/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
@@ -178,23 +179,28 @@ transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    transforms.Normalize((0.4376821, 0.4437697, 0.47280442),
+                (0.19803012, 0.20101562, 0.19703614))
+
 ])
 
 transform_test = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    #transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    transforms.Normalize((0.4376821, 0.4437697, 0.47280442),
+                (0.19803012, 0.20101562, 0.19703614)),
 ])
 batch=1000
-trainset = torchvision.datasets.CIFAR10(
-    root='./data', train=True, download=True, transform=transform_train)
+trainset = torchvision.datasets.SVHN(
+    root='./data', split="train", download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=batch, shuffle=True,drop_last=True,  num_workers=8)
 
-testset = torchvision.datasets.CIFAR10(
-    root='./data', train=False, download=True, transform=transform_test)
+testset = torchvision.datasets.SVHN(
+    root='./data', split="test", download=True, transform=transform_test)
 testloader = torch.utils.data.DataLoader(
     testset, batch_size=batch, shuffle=True,drop_last=True, num_workers=8)
+
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer',
            'dog', 'frog', 'horse', 'ship', 'truck')
@@ -215,9 +221,13 @@ run_name = "optimize_{}_{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_
 run_name = "explore_corrected_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
 run_name = "no_bias_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
 
+run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
 run_name = "true_learn_bias_10_epochs_rainbow_width_{}_seed_{}".format(args.width, args.seed)
 run_name = "bias_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
-run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
+run_name = "bias_svhn_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
+#run_name = "svhn_conv_width_{}_seed_{}".format(args.width, args.seed)
+run_name = "learn_bias_10_epochs_rainbow_width_{}_seed_{}".format(args.width, args.seed)
+
 
 print("Args.net: ", args.net)
 #print("Net: ", net)
@@ -231,16 +241,14 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", entity="muawizc", config=args,
-        group="final_loading_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="final_loading_align_resnet_svhn", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 sd = load_model(args, net)
 net.load_state_dict(sd)
 #print(net)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.linear.parameters(), lr=0.1, momentum=0.9,
-        weight_decay=5e-4)
-#optimizer = optim.SGD(filter(lambda p: p.requires_grad,  net.parameters()), lr=0.1,
+#optimizer = optim.SGD(, lr=0.1,
 #optimizer = optim.Adam(filter(lambda p: p.requires_grad,  net.parameters()),
 #        lr=0.0001,)
 #
@@ -270,9 +278,9 @@ def train(epoch):
         optimizer.zero_grad()
         outputs = net(inputs)
         loss = criterion(outputs, targets)
+        loss.backward()
         if args.optimize:
-            loss.backward()
-        optimizer.step()
+            optimizer.step()
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
@@ -327,8 +335,14 @@ set_seeds(args.seed)
 net.cuda()
 #state_switch(net, 0)
 resample(net)
-#biason(net)
+biason(net)
+
+#optimizer = optim.SGD(net.linear.parameters(), lr=0.1, momentum=0.9,
+#        weight_decay=5e-4)
+optimizer = optim.SGD(filter(lambda p: p.requires_grad,  net.parameters()), lr=0.1, momentum=0.9,
+        weight_decay=5e-4)
 #resample_infinite(net)
+#
 #factconv(net)
 net.cuda()
 print(net)
@@ -336,7 +350,7 @@ test(0)
 recorder['epoch_0'] = logger['accuracy']
 if args.statistics:
     realign(net)
-for epoch in range(0, 5):
+for epoch in range(0, 10):
     train(epoch)
     test(epoch)
     recorder['epoch_{}'.format(epoch+1)] = logger['accuracy']
