@@ -9,6 +9,22 @@ def safe_inverse(x, epsilon=1E-12):
     return x/(x**2 + 1e-4)
 
 class SVD(torch.autograd.Function):
+    """Low-rank SVD with manually re-implemented gradient.
+
+    This function calculates the low-rank SVD decomposition of an arbitary
+    matrix and re-implements the gradient such that we can regularize the
+    gradient.
+
+    Parameters
+    ----------
+    A : tensor
+        Input tensor with at most 3 dimensions. Usually is 2 dimensional. if
+        3 dimensional the svd is batched over the first dimension.
+
+    size : int
+        Slightly over-estimated rank of A.
+    """
+
     @staticmethod
     def forward(self, A, size):
         #U, S, V = torch.linalg.svd(A)#, False)
@@ -50,6 +66,36 @@ class SVD(torch.autograd.Function):
 
 
 class NewAlignment(nn.Module):
+    """Procurstes Alignment module used with rainbow networks when adapting for evaluation.
+
+    This module splits the input along the channel/2nd dimension into the generated
+    path and reference path, calculates the cross-covariance, and then
+    calculates the alignment. This module also saves a running
+    cross-covariance during train mode and uses a pre-calculated alignment
+    matrix on evaluation mode.
+
+    Parameters
+    ----------
+    size : int
+        Tells the low-rank SVD solver what rank to calculate. Divided by 2. 
+    rank : int
+        Simply holds the unmodified size of what rank to calculate. rank = size*2
+    state: int
+        Notes if we are using the generated (0) or reference (1) path. Usually
+        modified by recursive function.
+    x : tensor
+        Input tensor with at least 2 dimensions. If 4-dimensional we reshape
+        the paths such that the channel dimension is in the 2nd dimension and
+        all other dimensions (batch x spatial) are combined into the first dimension. 
+
+    Buffers
+    -------
+    cov : tensor
+        Cross-Covariance matrix. This is collected over multiple iterations on
+        the training set. 
+    alignment : tensor
+        Alignment matrix which is calculated from cov and then stored.
+    """
     def __init__(self, size, rank):
         super().__init__()
         self.svd = SVD.apply
@@ -89,44 +135,40 @@ class NewAlignment(nn.Module):
             alignment = self.alignment
         x1 =  x1@alignment
 
-        #x1 = x1 +x2_mu - scale*x1_mu@alignment
-
-        if x.ndim == 4:
-            aligned_x = x1.reshape(-1, x.shape[2], x.shape[3],
-                x1.shape[-1]).permute(0, 3, 1, 2)
-        #aligned_x = self.bn1(aligned_x)
-        return aligned_x
-
-class ANewAlignment(nn.Module):
-    def __init__(self, size, rank):
-        super().__init__()
-        self.svd = SVD.apply
-        #self.bn1 = nn.BatchNorm2d(size)
-        self.rank = rank
-        if size < rank+1:
-            #self.size = int(size*.50)
-            self.size = size//2
-        else:
-            self.size = rank
-        self.cov = torch.zeros((rank,rank)).cuda()
-        self.total = 0
-        self.first_time = True
-
-    def forward(self, x):
-        # changing path
-        x1 = x# = x[:, 0 : x.shape[1]//2, :, :]
-        # fixed path
-        
-        if x.ndim == 4:
-            x1 = x1.permute(0, 2, 3, 1)
-            x1 = x1.reshape((-1, x1.shape[-1]))
-            
-        alignment = self.alignment#.detach()
-        self.first_time=False
-        x1 =  x1@alignment
-
         if x.ndim == 4:
             aligned_x = x1.reshape(-1, x.shape[2], x.shape[3],
                 x1.shape[-1]).permute(0, 3, 1, 2)
         return aligned_x
 
+#unused
+#class ANewAlignment(nn.Module):
+#    def __init__(self, size, rank):
+#        super().__init__()
+#        self.svd = SVD.apply
+#        self.rank = rank
+#        if size < rank+1:
+#            self.size = size//2
+#        else:
+#            self.size = rank
+#        self.cov = torch.zeros((rank,rank)).cuda()
+#        self.total = 0
+#        self.first_time = True
+#
+#    def forward(self, x):
+#        # changing path
+#        x1 = x# = x[:, 0 : x.shape[1]//2, :, :]
+#        # fixed path
+#        
+#        if x.ndim == 4:
+#            x1 = x1.permute(0, 2, 3, 1)
+#            x1 = x1.reshape((-1, x1.shape[-1]))
+#            
+#        alignment = self.alignment#.detach()
+#        self.first_time=False
+#        x1 =  x1@alignment
+#
+#        if x.ndim == 4:
+#            aligned_x = x1.reshape(-1, x.shape[2], x.shape[3],
+#                x1.shape[-1]).permute(0, 3, 1, 2)
+#        return aligned_x
+#

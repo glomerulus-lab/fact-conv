@@ -56,8 +56,9 @@ def factconv(model):
             new_module.load_state_dict(new_sd)
             setattr(model, n1, new_module)
         if isinstance(m1, Alignment) or isinstance(m1, NewAlignment):
-            new_module = ANewAlignment(m1.rank, m1.rank)
+            new_module = NewAlignment(m1.rank, m1.rank)
             new_module.alignment = m1.alignment.detach()
+            new_module.state = 1
             setattr(model, n1, new_module)
 
 def biason(model):
