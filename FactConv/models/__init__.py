@@ -6,8 +6,8 @@ from .function_utils import replace_layers_factconv2d,replace_layers_factprojcon
 replace_layers_diagfactconv2d, replace_layers_diagchanfactconv2d,\
 turn_off_covar_grad, replace_layers_scale, init_V1_layers,\
 replace_layers_resample_align, replace_layers_offfactconv2d,\
-replace_layers_bias, replace_layers_gmm
-
+replace_layers_bias, replace_layers_gmm, replace_layers_eighconv2d,\
+replace_layers_rqfreeconv2d, replace_layers_rqalignedconv2d
 
 def define_models(args):
     if 'resnet18' in args.net:
@@ -37,6 +37,18 @@ def define_models(args):
 
     if 'fact' in args.net:
        replace_layers_factconv2d(model)
+
+    if 'eigh' in args.net:
+       replace_layers_eighconv2d(model)
+
+    if 'rqfree' in args.net:
+       replace_layers_rqfreeconv2d(model)
+
+    if 'rqfree' in args.net and 'aligned' in args.net:
+       replace_layers_rqalignedconv2d(model)
+
+
+
     if 'proj' in args.net:
        replace_layers_factprojconv2d(model)
     if 'diag' in args.net:
