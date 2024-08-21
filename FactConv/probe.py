@@ -13,7 +13,7 @@ import wandb
 from distutils.util import strtobool
 from models import define_models
 from conv_modules import ResamplingDoubleFactConv2d, FactConv2d
-from copy_align import NewAlignment, ANewAlignment
+from copy_align import NewAlignment
 from align import Alignment
 import math
 
@@ -96,13 +96,14 @@ def resample(model):
     for (n1, m1) in model.named_children():
         if len(list(m1.children())) > 0:
             resample(m1)
-        if isinstance(m1, ResamplingDoubleFactConv2d):
+        if isinstance(m1,nn.Conv2d):# ResamplingDoubleFactConv2d):
             m1.resample()
 
 
 def load_model(args, model):
     #src="../saved-models/Long_Cifar_ResNets/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_rainbow_cifar/"
+    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/retry_recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
@@ -220,6 +221,10 @@ run_name = "true_learn_bias_10_epochs_rainbow_width_{}_seed_{}".format(args.widt
 run_name = "bias_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
 run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
 
+#run_name = "eigh_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
+#run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
+#run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
+run_name = "{}_width_{}_seed_{}".format(args.name, args.width, args.seed)
 print("Args.net: ", args.net)
 #print("Net: ", net)
 set_seeds(0)
@@ -271,9 +276,10 @@ def train(epoch):
         optimizer.zero_grad()
         outputs = net(inputs)
         loss = criterion(outputs, targets)
+        loss.backward()
+
         if args.optimize:
-            loss.backward()
-        optimizer.step()
+            optimizer.step()
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
@@ -327,7 +333,7 @@ recorder = {}
 set_seeds(args.seed)
 net.cuda()
 #state_switch(net, 0)
-resample(net)
+#resample(net)
 #biason(net)
 #resample_infinite(net)
 #factconv(net)
@@ -337,7 +343,7 @@ test(0)
 recorder['epoch_0'] = logger['accuracy']
 if args.statistics:
     realign(net)
-for epoch in range(0, 5):
+for epoch in range(0, 0):
     train(epoch)
     test(epoch)
     recorder['epoch_{}'.format(epoch+1)] = logger['accuracy']

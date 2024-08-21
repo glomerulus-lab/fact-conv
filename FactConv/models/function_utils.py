@@ -4,7 +4,9 @@ from conv_modules import FactConv2d, FactProjConv2d, DiagFactConv2d,\
 DiagChanFactConv2d, ResamplingDoubleFactConv2d, OffFactConv2d, GMMFactConv2d
 from align import Alignment
 from V1_covariance import V1_init
-from decomp_modules import EighFactConv2d, RQFactConv2d, RQDoubleFactConv2d
+from decomp_modules import EighFactConv2d, RQFactConv2d, RQDoubleFactConv2d,\
+RQLeftFactConv2d, RQLeftDoubleFactConv2d, EighFixedFactConv2d,\
+EighFixedDoubleFactConv2d,EighDoubleFactConv2d 
 from torch.nn.utils.parametrizations import orthogonal
 
 def recurse_preorder(model, callback):
@@ -65,6 +67,59 @@ def replace_layers_rqfreeconv2d(model):
             return new_module
     return recurse_preorder(model, _replace_layers_rqconv2d)
 
+
+def replace_layers_rqfreeleftconv2d(model):
+    '''
+    Replace nn.Conv2d layers with FactConv2d
+    '''
+    def _replace_layers_rqfreeleftconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = RQLeftFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            orthogonal(new_module, "tri1_weight")
+            orthogonal(new_module, "tri2_weight")
+            return new_module
+    return recurse_preorder(model, _replace_layers_rqfreeleftconv2d)
+
+
+def replace_layers_rqfreeleftalignedconv2d(model):
+    '''
+    Replace nn.Conv2d layers with FactConv2d
+    '''
+    def _replace_layers_rqfreeleftalignedconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = RQLeftDoubleFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            orthogonal(new_module, "tri1_weight")
+            orthogonal(new_module, "tri2_weight")
+            return new_module
+    return recurse_preorder(model, _replace_layers_rqfreeleftalignedconv2d)
+
+
+
+
 def replace_layers_rqalignedconv2d(model):
     '''
     Replace nn.Conv2d layers with FactConv2d
@@ -115,6 +170,82 @@ def replace_layers_eighconv2d(model):
             orthogonal(new_module, "tri2_weight")
             return new_module
     return recurse_preorder(model, _replace_layers_eighconv2d)
+
+
+def replace_layers_eighfixedconv2d(model):
+    '''
+    Replace nn.Conv2d layers with FactConv2d
+    '''
+    def _replace_layers_eighfixedconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = EighFixedFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            orthogonal(new_module, "tri1_weight")
+            orthogonal(new_module, "tri2_weight")
+            return new_module
+    return recurse_preorder(model, _replace_layers_eighfixedconv2d)
+
+
+def replace_layers_eighfixedalignedconv2d(model):
+    '''
+    Replace nn.Conv2d layers with FactConv2d
+    '''
+    def _replace_layers_eighfixedalignedconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = EighFixedDoubleFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            orthogonal(new_module, "tri1_weight")
+            orthogonal(new_module, "tri2_weight")
+            return new_module
+    return recurse_preorder(model, _replace_layers_eighfixedalignedconv2d)
+
+
+
+def replace_layers_eighalignedconv2d(model):
+    '''
+    Replace nn.Conv2d layers with FactConv2d
+    '''
+    def _replace_layers_eighalignedconv2d(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = EighDoubleFactConv2d(
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            orthogonal(new_module, "tri1_weight")
+            orthogonal(new_module, "tri2_weight")
+            return new_module
+    return recurse_preorder(model, _replace_layers_eighalignedconv2d)
 
 
 

@@ -8,7 +8,7 @@ import torchvision
 import torchvision.transforms as transforms
 import os
 import argparse
-from pytorch_cifar_utils import progress_bar, set_seeds
+from pytorch_cifar_utils import progress_bar, set_seeds, accuracy, AverageMeter
 import wandb
 from distutils.util import strtobool
 from models import define_models
@@ -18,12 +18,14 @@ def resample(model):
     for (n1, m1) in model.named_children():
         if len(list(m1.children())) > 0:
             resample(m1)
-        if isinstance(m1, ResamplingDoubleFactConv2d):
+        if isinstance(m1, nn.Conv2d):# ResamplingDoubleFactConv2d):
             m1.resample()
 
 def save_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
+    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/retry_recent_new_rainbow_cifar/"
+    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/gmm_rainbow_cifar/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
             args.batchsize, args.rank,
@@ -87,6 +89,8 @@ testloader = torch.utils.data.DataLoader(
 classes = ('plane', 'car', 'bird', 'cat', 'deer',
            'dog', 'frog', 'horse', 'ship', 'truck')
 
+class_map = {0:0, 1:1, 2:2, 3:3, 4:4, 5:3, 6:5, 7:6, 8:7, 9:8}
+
 # Model
 print('==> Building model..')
 
@@ -100,11 +104,13 @@ if args.double:
     net = net.double()
 net = net.to(device)
 wandb_dir = "../../wandb"
+#TODO: VIVIAN REMOVE REVERT BACK TO ICML DAYS!!!
+#TODO: PLS NO MORE CHDIR Q_Q
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", entity="muawizc", config=args,
-        group="saving_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="testing_saving_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 
@@ -122,6 +128,9 @@ def train(epoch):
     train_loss = 0
     correct = 0
     total = 0
+    top1 = AverageMeter("Acc@1")
+    top2 = AverageMeter("Acc@2")
+    top3 = AverageMeter("Acc@3")
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         if args.double:
@@ -134,15 +143,27 @@ def train(epoch):
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
+
+        acc1, acc2, acc3 = accuracy(outputs, targets, topk=(1, 2, 3))
+        
+        top1.update(acc1[0], outputs.shape[0])
+        top2.update(acc2[0], outputs.shape[0])
+        top3.update(acc3[0], outputs.shape[0])
+
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                     % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
+        progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%%  (%d/%d), top1: %.3f%%, top2: %.3f%%, top3: %.3f%%'
+                     % (train_loss/(batch_idx+1), 100.*correct/total, correct,
+                         total, top1.avg, top2.avg, top3.avg))
     
     logger["train_accuracy"] = 100.*correct/total
+    logger['top1_train'] = top1.avg
+    logger['top2_train'] = top2.avg
+    logger['top3_train'] = top3.avg
+
 
 def test(epoch):
     global best_acc
@@ -150,6 +171,10 @@ def test(epoch):
     test_loss = 0
     correct = 0
     total = 0
+    top1 = AverageMeter("Acc@1")
+    top2 = AverageMeter("Acc@2")
+    top3 = AverageMeter("Acc@3")
+
     with torch.no_grad():
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
@@ -160,17 +185,27 @@ def test(epoch):
             outputs = net(inputs)
             loss = criterion(outputs, targets)
 
+            acc1, acc2, acc3 = accuracy(outputs, targets, topk=(1, 2, 3))
+ 
+            top1.update(acc1[0], outputs.shape[0])
+            top2.update(acc2[0], outputs.shape[0])
+            top3.update(acc3[0], outputs.shape[0])
+
             test_loss += loss.item()
             _, predicted = outputs.max(1)
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
-                         % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
+            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d), top1: %.3f%%, top2: %.3f%%, top3: %.3f%%'
+                         % (test_loss/(batch_idx+1), 100.*correct/total,
+                             correct, total, top1.avg, top2.avg, top3.avg))
 
     # Save checkpoint.
     acc = 100.*correct/total
     logger["accuracy"] = acc
+    logger['top1_test'] = top1.avg
+    logger['top2_test'] = top2.avg
+    logger['top3_test'] = top3.avg
     if acc > best_acc:
         print('Saving..')
         state = {
