@@ -10,4 +10,4 @@
 module load anaconda/3
 conda activate random_features
 
-python pytorch_cifar.py --channel_k $1 --seed $2 --net $3
+python pytorch_cifar.py --nonlinearity "abs" --width $1 --channel_k $2 --seed $3 --net $4

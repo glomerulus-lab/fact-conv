@@ -1,5 +1,8 @@
 from .resnet import ResNet18
 from .resnext import Network
+from .wideresnet import WideResNet
+from .convnext import convnext_base
+from .conv2next import conv2next_base
 from .LC_models import LC_CIFAR10
 from .function_utils import replace_layers_factconv2d,\
 replace_layers_diagfactconv2d, replace_layers_diagchanfactconv2d,\
@@ -14,6 +17,12 @@ def define_models(args):
        model = ResNet18()
     if 'resnext' in args.net:
         model = Network()
+    if 'wrn' in args.net:
+        model = WideResNet(depth=28, num_classes=10, widen_factor=16, dropRate=0)
+    if 'convnext' in args.net:
+        model = convnext_base()
+    if 'conv2next' in args.net:
+        model = conv2next_base()
     if 'rsn' in args.net:
         model = LC_CIFAR10(hidden_dim=100, size=2, spatial_freq=0.1, scale=1,
                 bias=True, freeze_spatial=False, freeze_channel=False,
