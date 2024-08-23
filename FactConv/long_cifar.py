@@ -26,6 +26,7 @@ def save_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/retry_recent_new_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/gmm_rainbow_cifar/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
             args.batchsize, args.rank,
@@ -55,6 +56,8 @@ parser.add_argument('--rank', default=200, type=int, help='seed to use')
 parser.add_argument('--bias', default=0, type=int, help='seed to use')
 
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
+parser.add_argument('--channel_k', type=int, default=512, help='channel\
+covariance rank value')
 
 args = parser.parse_args()
 
@@ -104,12 +107,9 @@ if args.double:
     net = net.double()
 net = net.to(device)
 wandb_dir = "../../wandb"
-#TODO: VIVIAN REMOVE REVERT BACK TO ICML DAYS!!!
-#TODO: PLS NO MORE CHDIR Q_Q
 os.makedirs(wandb_dir, exist_ok=True)
-os.chdir(wandb_dir)
 
-run = wandb.init(project="FactConv", entity="muawizc", config=args,
+run = wandb.init(project="FactConv", entity="whitev4", config=args,
         group="testing_saving_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 

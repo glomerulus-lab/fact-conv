@@ -10,7 +10,7 @@ replace_layers_bias, replace_layers_gmm, replace_layers_eighconv2d,\
 replace_layers_rqfreeconv2d, replace_layers_rqalignedconv2d, \
 replace_layers_rqfreeleftconv2d, replace_layers_rqfreeleftalignedconv2d, \
 replace_layers_eighalignedconv2d, replace_layers_eighfixedconv2d,\
-replace_layers_eighfixedalignedconv2d
+replace_layers_eighfixedalignedconv2d, replace_layers_lowrank
 
 
 def define_models(args):
@@ -30,7 +30,9 @@ def define_models(args):
         model = PostBNResNet18()
     if 'post_bn_aligned_resnet9' in args.net:
         model = PostBNResNet9()
-        
+
+    if 'lowrank' in args.net:        
+        replace_layers_lowrank(model, args.channel_k)
 
     if args.width != 1:
         replace_layers_scale(model, args.width)
