@@ -10,7 +10,8 @@ replace_layers_bias, replace_layers_gmm, replace_layers_eighconv2d,\
 replace_layers_rqfreeconv2d, replace_layers_rqalignedconv2d, \
 replace_layers_rqfreeleftconv2d, replace_layers_rqfreeleftalignedconv2d, \
 replace_layers_eighalignedconv2d, replace_layers_eighfixedconv2d,\
-replace_layers_eighfixedalignedconv2d, replace_layers_lowrank
+replace_layers_eighfixedalignedconv2d, replace_layers_lowrank,\
+replace_layers_lrdiag
 
 
 def define_models(args):
@@ -33,6 +34,8 @@ def define_models(args):
 
     if 'lowrank' in args.net:        
         replace_layers_lowrank(model, args.channel_k)
+    if 'lrdiag' in args.net:        
+        replace_layers_lrdiag(model, args.channel_k)
 
     if args.width != 1:
         replace_layers_scale(model, args.width)
@@ -70,8 +73,8 @@ def define_models(args):
 
     if 'proj' in args.net:
        replace_layers_factprojconv2d(model)
-    if 'diag' in args.net:
-        replace_layers_diagfactconv2d(model)
+    # if 'diag' in args.net:
+    #     replace_layers_diagfactconv2d(model)
     #if 'off' in args.net:
     #    replace_layers_offfactconv2d(model)
     if 'diagchan' in args.net:

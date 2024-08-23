@@ -5,7 +5,8 @@ from torch.nn.parameter import Parameter
 from torch.nn.common_types import _size_2_t
 from typing import Optional, List, Tuple, Union
 import math
-from cov_refactor import Covariance, LowRankK1Covariance
+from cov_refactor import Covariance, LowRankK1Covariance,\
+LowRankK1DiagCovariance
 
 """ 
 The function below is copied directly from 
@@ -274,8 +275,80 @@ class LowRankResamplingDoubleFactConv2d(nn.Conv2d):
         channel_triu_size = self.in_channels // self.groups
         spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
 
-        #TODO: Add channel_k as parameter
         self.channel = LowRankK1Covariance(channel_triu_size, channel_k, "abs")
+        self.spatial = Covariance(spatial_triu_size, "abs")
+
+        self.state=0
+
+
+
+    def forward(self, input: Tensor) -> Tensor:
+        U1 = self.channel.sqrt()
+        U2 = self.spatial.sqrt()
+
+        # flatten over filter dims and contract
+        composite_weight = _contract(self.weight, U1.T, 1)
+        composite_weight = _contract(
+            torch.flatten(composite_weight, -2, -1), U2.T, -1
+        ).reshape(self.weight.shape)
+        x2 = self._conv_forward(input, composite_weight, self.bias)
+        if self.state == 1:
+            return x2
+
+        #nn.init.orthogonal_(self.resampling_weight)
+        composite_resampling_weight = _contract(self.resampling_weight, U1.T, 1)
+        composite_resampling_weight = _contract(
+            torch.flatten(composite_resampling_weight, -2, -1), U2.T, -1
+        ).reshape(self.weight.shape)
+        x1 = self._conv_forward(input, composite_resampling_weight, self.bias)
+        return torch.cat([x1, x2], dim=1)
+
+
+    def resample(self):
+        nn.init.kaiming_normal_(self.resampling_weight)
+        #nn.init.orthogonal_(self.resampling_weight)
+
+    def ref_resample(self):
+        nn.init.kaiming_normal_(self.weight)
+        #nn.init.orthogonal_(self.resampling_weight)
+
+
+class LowRankDiagResamplingDoubleFactConv2d(nn.Conv2d):
+    def __init__(
+        self,
+        channel_k: int,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: _size_2_t,
+        stride: _size_2_t = 1,
+        padding: Union[str, _size_2_t] = 0,
+        dilation: _size_2_t = 1,
+        groups: int = 1,
+        bias: bool = True,
+        padding_mode: str = 'zeros',  # TODO: refine this type
+        device=None,
+        dtype=None
+    ) -> None:
+        # init as Conv2d
+        super().__init__(
+            in_channels, out_channels, kernel_size, stride, padding, dilation, 
+            groups, bias, padding_mode, device, dtype)
+        # weight shape: (out_channels, in_channels // groups, *kernel_size)
+        new_weight = torch.empty_like(self.weight)
+        del self.weight # remove Parameter, create buffer
+        self.register_buffer("weight", new_weight)
+        nn.init.kaiming_normal_(self.weight)
+        #nn.init.orthogonal_(self.weight)
+
+        new_weight = torch.empty_like(self.weight)
+        self.register_buffer("resampling_weight", new_weight)
+        nn.init.kaiming_normal_(self.resampling_weight)
+        #nn.init.orthogonal_(self.resampling_weight)
+
+        channel_triu_size = self.in_channels // self.groups
+        spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
+
+        self.channel = LowRankK1DiagCovariance(channel_triu_size, channel_k)
         self.spatial = Covariance(spatial_triu_size, "abs")
 
         self.state=0

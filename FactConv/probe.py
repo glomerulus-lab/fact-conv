@@ -106,11 +106,13 @@ def load_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/retry_recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
-    run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
+    run_name\
+    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
             args.double, args.resample,
-              args.width, 0, args.num_epochs)
+              args.width, 0, args.num_epochs, args.channel_k)
     sd = torch.load(src+run_name+"/model.pt")
     #for key in sd.keys():
     #    if "resampling_weight" in key:
@@ -139,6 +141,7 @@ parser.add_argument('--bias', default=0, type=int, help='seed to use')
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
 parser.add_argument('--gmm', default=0, type=int, help='seed to use')
 parser.add_argument('--t', default=0, type=float, help='seed to use')
+parser.add_argument('--channel_k', default=512, type=int,help='channel rank')
 
 args = parser.parse_args()
 
@@ -205,26 +208,27 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 print('==> Building model..')
 
 net = define_models(args)
-run_name = "optimize_{}_{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(
+run_name\
+= "optimize_{}_{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(
         args.optimize,args.net, args.batchsize, args.rank, args.double,
-        args.resample, args.width, args.seed, args.num_epochs)
+        args.resample, args.width, args.seed, args.num_epochs, args.channel_k)
 #run_name = "width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width,
 #        args.optimize, args.statistics, args.seed)
 #
 #run_name = "width_{}_seed_{}_pretrained".format(args.width, args.seed)
 #run_name = "width_{}_seed_{}_pretrained".format(args.width, args.seed)
 
-run_name = "explore_corrected_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
-run_name = "no_bias_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
+#run_name = "explore_corrected_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
+#run_name = "no_bias_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
 
-run_name = "true_learn_bias_10_epochs_rainbow_width_{}_seed_{}".format(args.width, args.seed)
-run_name = "bias_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
-run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
+#run_name = "true_learn_bias_10_epochs_rainbow_width_{}_seed_{}".format(args.width, args.seed)
+#run_name = "bias_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
+#run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
 
 #run_name = "eigh_width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width, args.optimize, args.statistics, args.seed)
 #run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
 #run_name = "conv_width_{}_seed_{}".format(args.width, args.seed)
-run_name = "{}_width_{}_seed_{}".format(args.name, args.width, args.seed)
+#run_name = "{}_width_{}_seed_{}".format(args.name, args.width, args.seed)
 print("Args.net: ", args.net)
 #print("Net: ", net)
 set_seeds(0)
@@ -236,7 +240,7 @@ wandb_dir = "../../wandb"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
-run = wandb.init(project="FactConv", entity="muawizc", config=args,
+run = wandb.init(project="FactConv", entity="whitev4", config=args,
         group="final_loading_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 sd = load_model(args, net)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from conv_modules import FactConv2d, FactProjConv2d, DiagFactConv2d,\
 DiagChanFactConv2d, ResamplingDoubleFactConv2d, OffFactConv2d, GMMFactConv2d,\
-LowRankResamplingDoubleFactConv2d
+LowRankResamplingDoubleFactConv2d, LowRankDiagResamplingDoubleFactConv2d
 from align import Alignment
 from V1_covariance import V1_init
 from decomp_modules import EighFactConv2d, RQFactConv2d, RQDoubleFactConv2d,\
@@ -276,11 +276,11 @@ def replace_layers_factprojconv2d(model):
 
 def replace_layers_lowrank(model, channel_k):
     '''
-    Replace ResamplingDoubleFactConv layers with 
+    Replace nn.Conv2d layers with 
     LowRankResamplingDoubleFactConv
     '''
     def _replace_layers_lowrank(module):
-        if isinstance(module, ResamplingDoubleFactConv2d):
+        if isinstance(module, nn.Conv2d):
             ## simple module
             new_module = LowRankResamplingDoubleFactConv2d(
                     channel_k=channel_k,
@@ -297,6 +297,30 @@ def replace_layers_lowrank(model, channel_k):
             new_module.load_state_dict(new_sd)
             return new_module
     return recurse_preorder(model, _replace_layers_lowrank)
+
+def replace_layers_lrdiag(model, channel_k):
+    '''
+    Replace nn.Conv2d layers with 
+    LowRankDiagResamplingDoubleFactConv
+    '''
+    def _replace_layers_lrdiag(module):
+        if isinstance(module, nn.Conv2d):
+            ## simple module
+            new_module = LowRankDiagResamplingDoubleFactConv2d(
+                    channel_k=channel_k,
+                    in_channels=module.in_channels,
+                    out_channels=module.out_channels,
+                    kernel_size=module.kernel_size,
+                    stride=module.stride, padding=module.padding, 
+                    bias=True if module.bias is not None else False)
+            old_sd = module.state_dict()
+            new_sd = new_module.state_dict()
+            new_sd['weight'] = old_sd['weight']
+            if module.bias is not None:
+                new_sd['bias'] = old_sd['bias']
+            new_module.load_state_dict(new_sd)
+            return new_module
+    return recurse_preorder(model, _replace_layers_lrdiag)
 
 def replace_layers_offfactconv2d(model):
     '''
