@@ -31,7 +31,7 @@ def save_model(args, model):
     run_name\
     = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
             args.batchsize, args.rank,
-            args.double, args.resample, args.width, args.seed, args.num_epochs,
+            args.resample, args.width, args.seed, args.num_epochs,
             args.channel_k)
     model_dir =  src + run_name
     os.makedirs(model_dir, exist_ok=True)
@@ -101,7 +101,7 @@ print('==> Building model..')
 
 net = define_models(args)
 run_name\
-= "rank{}_{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.channel_k, args.net, args.batchsize, args.rank, args.double,
+= "rank{}_{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.channel_k, args.net, args.batchsize, args.rank,
         args.resample, args.width, args.seed, args.num_epochs)
 print("Args.net: ", args.net)
 print("Net: ", net)

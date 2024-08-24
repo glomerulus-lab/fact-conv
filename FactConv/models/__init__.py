@@ -32,17 +32,17 @@ def define_models(args):
     if 'post_bn_aligned_resnet9' in args.net:
         model = PostBNResNet9()
 
-    if 'lowrank' in args.net:        
-        replace_layers_lowrank(model, args.channel_k)
-    if 'lrdiag' in args.net:        
-        replace_layers_lrdiag(model, args.channel_k)
-
     if args.width != 1:
         replace_layers_scale(model, args.width)
     if args.bias == 1:
         replace_layers_bias(model)
     if args.gmm >= 1:
         replace_layers_gmm(model, args.gmm)
+
+    if 'lowrank' in args.net:        
+        replace_layers_lowrank(model, args.channel_k)
+    if 'lrdiag' in args.net:        
+        replace_layers_lrdiag(model, args.channel_k)
 
     if 'fact' in args.net:
        replace_layers_factconv2d(model)

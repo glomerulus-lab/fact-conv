@@ -111,8 +111,8 @@ def load_model(args, model):
     = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
-            args.double, args.resample,
-              args.width, 0, args.num_epochs, args.channel_k)
+            args.resample,
+              args.width, args.seed, args.num_epochs, args.channel_k)
     sd = torch.load(src+run_name+"/model.pt")
     #for key in sd.keys():
     #    if "resampling_weight" in key:
@@ -347,7 +347,7 @@ test(0)
 recorder['epoch_0'] = logger['accuracy']
 if args.statistics:
     realign(net)
-for epoch in range(0, 0):
+for epoch in range(0, 10):
     train(epoch)
     test(epoch)
     recorder['epoch_{}'.format(epoch+1)] = logger['accuracy']
