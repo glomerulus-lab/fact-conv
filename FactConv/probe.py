@@ -337,7 +337,7 @@ recorder = {}
 set_seeds(args.seed)
 net.cuda()
 #state_switch(net, 0)
-#resample(net)
+resample(net)
 #biason(net)
 #resample_infinite(net)
 #factconv(net)
@@ -347,7 +347,7 @@ test(0)
 recorder['epoch_0'] = logger['accuracy']
 if args.statistics:
     realign(net)
-for epoch in range(0, 10):
+for epoch in range(0, 5):
     train(epoch)
     test(epoch)
     recorder['epoch_{}'.format(epoch+1)] = logger['accuracy']
