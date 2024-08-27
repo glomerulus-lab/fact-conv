@@ -108,11 +108,11 @@ def load_model(args, model):
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
     src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
     run_name\
-    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
+    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
             args.resample,
-              args.width, args.seed, args.num_epochs, args.channel_k)
+              args.width, args.seed, args.num_epochs, args.channel_k, args.lr)
     sd = torch.load(src+run_name+"/model.pt")
     #for key in sd.keys():
     #    if "resampling_weight" in key:
@@ -142,7 +142,7 @@ parser.add_argument('--width', type=float, default=1, help='resnet width scale f
 parser.add_argument('--gmm', default=0, type=int, help='seed to use')
 parser.add_argument('--t', default=0, type=float, help='seed to use')
 parser.add_argument('--channel_k', default=512, type=int,help='channel rank')
-
+parser.add_argument('--resample_seed', default=0, type=int, help='resampling seed')
 args = parser.parse_args()
 
 # TRy$ THE PRINCIPLED WAy$
@@ -334,7 +334,7 @@ def test(epoch):
     #    best_acc = acc
 recorder = {}
 #set_seeds(args.seed)
-set_seeds(args.seed)
+set_seeds(args.resample_seed)
 net.cuda()
 #state_switch(net, 0)
 resample(net)
