@@ -135,7 +135,7 @@ parser.add_argument('--double', default=0, type=int, help='seed to use')
 parser.add_argument('--optimize', default=0, type=int, help='seed to use')
 parser.add_argument('--statistics', default=0, type=int, help='seed to use')
 parser.add_argument('--resample', default=0, type=int, help='seed to use')
-parser.add_argument('--batchsize', default=256, type=int, help='seed to use')
+parser.add_argument('--batchsize', default=1024, type=int, help='seed to use')
 parser.add_argument('--rank', default=200, type=int, help='seed to use')
 parser.add_argument('--bias', default=0, type=int, help='seed to use')
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
@@ -209,8 +209,8 @@ print('==> Building model..')
 
 net = define_models(args)
 run_name\
-= "optimize_{}_{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(
-        args.optimize,args.net, args.batchsize, args.rank, args.double,
+= "optimize_{}_stats_{}_{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(
+        args.optimize,args.statistics,args.net, args.batchsize, args.rank, args.double,
         args.resample, args.width, args.seed, args.num_epochs, args.channel_k)
 #run_name = "width_{}_optimize_{}_statistics_{}_seed_{}".format(args.width,
 #        args.optimize, args.statistics, args.seed)
@@ -236,7 +236,8 @@ set_seeds(0)
 if args.double:
     net = net.double()
 net = net.to(device)
-wandb_dir = "../../wandb"
+#wandb_dir = "../../wandb"
+wandb_dir = "/home/mila/v/vivian.white/scratch/wandb/"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
