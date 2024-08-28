@@ -26,6 +26,7 @@ def save_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/retry_recent_new_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
+    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/final_rainbows/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/gmm_rainbow_cifar/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
             args.batchsize, args.rank,
@@ -48,6 +49,7 @@ parser.add_argument('--name', type=str, default='ResNet',
 parser.add_argument('--seed', default=0, type=int, help='seed to use')
 parser.add_argument('--double', default=0, type=int, help='seed to use')
 parser.add_argument('--gmm', default=0, type=int, help='seed to use')
+parser.add_argument('--channel_k', default=512, type=int, help='seed to use')
 parser.add_argument('--resample', default=0, type=int, help='seed to use')
 parser.add_argument('--batchsize', default=256, type=int, help='seed to use')
 parser.add_argument('--rank', default=200, type=int, help='seed to use')
@@ -140,6 +142,8 @@ def train(epoch):
 
         optimizer.zero_grad()
         outputs = net(inputs)
+        if "pre_bn_alt_aligned_resnet18" in args.net:
+            targets = torch.cat([targets, targets], dim=0)
         loss = criterion(outputs, targets)
         loss.backward()
         optimizer.step()
@@ -182,7 +186,9 @@ def test(epoch):
                 inputs = inputs.double()
             if args.resample:
                 resample(net)
-            outputs = net(inputs)
+            outputs = net(inputs)#[:inputs.shape[0]]
+            if "pre_bn_alt_aligned_resnet18" in args.net:
+                targets = torch.cat([targets, targets], dim=0)
             loss = criterion(outputs, targets)
 
             acc1, acc2, acc3 = accuracy(outputs, targets, topk=(1, 2, 3))

@@ -1,6 +1,7 @@
 from .resnet import ResNet18, ResNet9
 from .switched_resnet import SwitchedResNet18, SwitchedResNet9
 from .aligned_resnet import AlignedResNet18, AlignedResNet9
+from .altaligned_resnet import AltAlignedResNet18
 from .pre_bn_resnet import PostBNResNet18, PostBNResNet9
 from .function_utils import replace_layers_factconv2d,replace_layers_factprojconv2d,\
 replace_layers_diagfactconv2d, replace_layers_diagchanfactconv2d,\
@@ -10,7 +11,8 @@ replace_layers_bias, replace_layers_gmm, replace_layers_eighconv2d,\
 replace_layers_rqfreeconv2d, replace_layers_rqalignedconv2d, \
 replace_layers_rqfreeleftconv2d, replace_layers_rqfreeleftalignedconv2d, \
 replace_layers_eighalignedconv2d, replace_layers_eighfixedconv2d,\
-replace_layers_eighfixedalignedconv2d
+replace_layers_eighfixedalignedconv2d, replace_layers_newresamplingconv2d,\
+replace_layers_lrdiag
 
 
 def define_models(args):
@@ -30,7 +32,10 @@ def define_models(args):
         model = PostBNResNet18()
     if 'post_bn_aligned_resnet9' in args.net:
         model = PostBNResNet9()
-        
+
+    if 'pre_bn_alt_aligned_resnet18' in args.net:
+        model = AltAlignedResNet18()
+ 
 
     if args.width != 1:
         replace_layers_scale(model, args.width)
@@ -41,6 +46,12 @@ def define_models(args):
 
     if 'fact' in args.net:
        replace_layers_factconv2d(model)
+
+    if 'alt_aligned' in args.net:
+       replace_layers_newresamplingconv2d(model)
+
+    if 'alt_aligned' in args.net and 'lrdiag' in args.net:
+       replace_layers_lrdiag(model, args.channel_k)
 
     if 'eigh' in args.net:
        replace_layers_eighconv2d(model)
@@ -68,12 +79,12 @@ def define_models(args):
 
     if 'proj' in args.net:
        replace_layers_factprojconv2d(model)
-    if 'diag' in args.net:
-        replace_layers_diagfactconv2d(model)
+    #if 'diag' in args.net:
+    #    replace_layers_diagfactconv2d(model)
     #if 'off' in args.net:
     #    replace_layers_offfactconv2d(model)
-    if 'diagchan' in args.net:
-        replace_layers_diagchanfactconv2d(model)
+    #if 'diagchan' in args.net:
+    #    replace_layers_diagchanfactconv2d(model)
     if "v1" in args.net:
         init_V1_layers(model, bias=False)
     if "us" in args.net:
