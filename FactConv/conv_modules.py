@@ -268,7 +268,8 @@ class ResamplingDoubleFactConv2d(nn.Conv2d):
         composite_weight = _contract(
             torch.flatten(composite_weight, -2, -1), U2.T, -1
         ).reshape(self.weight.shape)
-        x2 = self._conv_forward(input, composite_weight, self.bias)
+        # reference path
+        x2 = self._conv_forward(input[:, input.shape[1]//2:, :, :], composite_weight, self.bias)
         if self.state == 1:
             return x2
 
@@ -277,7 +278,11 @@ class ResamplingDoubleFactConv2d(nn.Conv2d):
         composite_resampling_weight = _contract(
             torch.flatten(composite_resampling_weight, -2, -1), U2.T, -1
         ).reshape(self.weight.shape)
-        x1 = self._conv_forward(input, composite_resampling_weight, self.bias)
+
+        # generated path
+        x1 = self._conv_forward(input[:, 0:input.shape[1]//2, :, :], composite_resampling_weight, self.bias)
+
+        # generated path first, reference path second
         return torch.cat([x1, x2], dim=1)
 
 
@@ -645,7 +650,6 @@ class NewResamplingDoubleFactConv2d(nn.Conv2d):
 
         triu1_len = triu1.shape[1]
         triu2_len = triu2.shape[1]
-        print("HO")
         tri1_vec = self.weight.new_zeros((triu1_len,))
         diag1 = triu1[0] == triu1[1]
         tri1_vec[diag1] = 1.0

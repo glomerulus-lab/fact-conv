@@ -24,12 +24,13 @@ class BasicBlock(nn.Module):
     def __init__(self, in_planes, planes, stride=1):
         super(BasicBlock, self).__init__()
         self.align1 = Alignment(in_planes, in_planes)
-        self.bn1 = nn.BatchNorm2d(in_planes, track_running_stats=True)
+        # rainbow networks double the batchnorm channel size
+        self.bn1 = nn.BatchNorm2d(in_planes*2, track_running_stats=True)
         self.conv1 = ResamplingDoubleFactConv2d(
             in_planes, planes, kernel_size=3, stride=stride, padding=1,
             bias=False)
         self.align2 = Alignment(planes, planes)
-        self.bn2 = nn.BatchNorm2d(planes, track_running_stats=True)
+        self.bn2 = nn.BatchNorm2d(planes*2, track_running_stats=True)
         self.conv2 = ResamplingDoubleFactConv2d(planes, planes, kernel_size=3,
                                stride=1, padding=1, bias=False)
 
@@ -108,7 +109,7 @@ class ResNet(nn.Module):
         #self.align =  Alignment(512*block.expansion, 512*block.expansion)
         #self.align =  nn.Identity()# Alignment(512*block.expansion, 512*block.expansion)
         self.align =  Alignment(512*block.expansion, 512*block.expansion)
-        self.bn_final = nn.BatchNorm2d(512*block.expansion, track_running_stats=True)
+        self.bn_final = nn.BatchNorm2d(512*block.expansion*2, track_running_stats=True)
         self.linear = nn.Linear(512*block.expansion, num_classes)
 
     def _make_layer(self, block, planes, num_blocks, stride):
@@ -130,9 +131,39 @@ class ResNet(nn.Module):
         out = self.linear(out)
         return out
 
+import copy
+class RainbowNet(nn.Module):
+    def __init__(self, resnet):
+        super(RainbowNet, self).__init__()
+        # we don't want to mix outputs, so we move the linear layer away from
+        # the network in order to grab the features, split channel in half, 
+        # then feed into linear layer
+        self.linear = copy.deepcopy(resnet.linear)
+        resnet.linear = nn.Identity()
+        self.resnet = resnet
+
+
+    def forward(self, x):
+        # concat batch along channel dim
+        x = torch.cat([x, x], dim=1)
+        # feed into generated and reference networks
+        out = self.resnet(x)
+        # get generated path features
+        y_1 = out[:, 0:out.shape[1]//2]
+        # get reference path features
+        y_2 = out[:, out.shape[1]//2:]
+        # concatenate along batch dim
+        out = torch.cat([y_1, y_2],dim=0)
+        # get output logits. first half is generated network, 2nd half is
+        # reference network
+        out = self.linear(out)
+        return out
+
+
+
 
 def AlignedResNet18():
-    return ResNet(BasicBlock, [2, 2, 2, 2])
+    return RainbowNet(ResNet(BasicBlock, [2, 2, 2, 2]))
 
 def AlignedResNet9():
     return ResNet(BasicBlock, [1, 1, 1, 1])

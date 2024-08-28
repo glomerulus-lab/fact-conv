@@ -192,6 +192,7 @@ transform_test = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
+#batch=args.batchsize#1000
 batch=1000
 trainset = torchvision.datasets.CIFAR10(
     root='./data', train=True, download=True, transform=transform_train)
@@ -267,8 +268,9 @@ optimizer = optim.SGD(parameters, lr=0.1, momentum=0.9,
 #        T_max=args.num_epochs)
 args.resample=0
 logger = {}
+
 # Training
-def train(epoch, state=1):
+def train(epoch, state=1, num_ensemble_samples=10):
     print('\nEpoch: %d' % epoch)
     if args.statistics:
         net.train()
@@ -281,25 +283,22 @@ def train(epoch, state=1):
         inputs, targets = inputs.to(device), targets.to(device)
         if args.double:
             inputs = inputs.double()
-        #if args.resample:
-        #    resample(net)
 
         optimizer.zero_grad()
-        #outputs = net(inputs)
-        #targets = torch.cat([targets, targets], dim=0)
-        #outputs = net(inputs)[:inputs.shape[0]]
 
+        # 0 : only used for Conv or SRF networks 
+        # 1 : generated, 2 : ensemble 3 : reference
         if state == 1:
             outputs = net(inputs)[:inputs.shape[0]]
         elif state == 0:
             outputs = net(inputs)
         elif state==2:
-            for i in range(0, totalu):
+            for i in range(0, num_ensemble_samples):
                 resample(net)
                 if outputs is None:
-                    outputs = net(inputs)[:inputs.shape[0]]/totalu
+                    outputs = net(inputs)[:inputs.shape[0]]/num_ensemble_samples
                 else:
-                    outputs += net(inputs)[:inputs.shape[0]]/totalu
+                    outputs += net(inputs)[:inputs.shape[0]]/num_ensemble_samples
         else: 
             outputs = net(inputs)[inputs.shape[0]:]
  
@@ -318,7 +317,8 @@ def train(epoch, state=1):
     
     logger["train_accuracy"] = 100.*correct/total
 
-def test(epoch,state=1, totalu=10):
+
+def test(epoch, state=1, num_ensemble_samples=10):
     global best_acc
     net.eval()
     state_dict = net.state_dict()
@@ -330,19 +330,19 @@ def test(epoch,state=1, totalu=10):
             inputs, targets = inputs.to(device), targets.to(device)
             if args.double:
                 inputs = inputs.double()
-            #if args.resample:
-            #    resample(net)
-            #outputs = net(inputs)
+
+            # 0 : only used for Conv or SRF networks 
+            # 1 : generated, 2 : ensemble 3 : reference
             outputs = None
             if state == 1:
                 outputs = net(inputs)[:inputs.shape[0]]
             elif state==2:
-                for i in range(0, totalu):
+                for i in range(0, num_ensemble_samples):
                     resample(net)
                     if outputs is None:
-                        outputs = net(inputs)[:inputs.shape[0]]/totalu
+                        outputs = net(inputs)[:inputs.shape[0]]/num_ensemble_samples
                     else:
-                        outputs += net(inputs)[:inputs.shape[0]]/totalu
+                        outputs += net(inputs)[:inputs.shape[0]]/num_ensemble_samples
             elif state == 0:
                 outputs = net(inputs)
             else: 
@@ -382,7 +382,8 @@ net.cuda()
 #factconv(net)
 print(net)
 
-if "alt_align" in args.net:
+# wanna evaluate generated, reference, and ensemble + adapted networks.
+if "align" in args.net:
     # one sample
     resample(net)
 
@@ -405,11 +406,8 @@ if "alt_align" in args.net:
         train(epoch, 1)
         test(epoch, 1)
         recorder['adapted_{}'.format(epoch+1)] = logger['accuracy']
-        #recorder['epoch_train_{}'.format(epoch+1)] = logger['train_accuracy']
-        #if epoch == 5:
-        #    factconv(net)
-        #    net.cuda()
 else:
+    # just evaluate standard conv or SRF networks
     test(0, 0)
     recorder['reference_net'] = logger['accuracy']
 run.log(recorder)

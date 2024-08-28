@@ -1,7 +1,5 @@
-from rainbow import calc_svd
 import torch
 import torch.nn as nn
-import tensorly
 
 import numpy as np
 
@@ -97,9 +95,10 @@ class Alignment(nn.Module):
 
         if self.state == 1:
             return x
-        # changing path
+
+        # generated path
         x1 = x[:, 0 : x.shape[1]//2, :, :]
-        # fixed path
+        # reference path
         x2 = x[:, x.shape[1]//2 : , :, :]
 
         
@@ -118,5 +117,9 @@ class Alignment(nn.Module):
         if x.ndim == 4:
             aligned_x = x1.reshape(-1, x.shape[2], x.shape[3],
                 x1.shape[-1]).permute(0, 3, 1, 2)
-        return aligned_x
+            x_2 = x2.reshape(-1, x.shape[2], x.shape[3],
+                x1.shape[-1]).permute(0, 3, 1, 2)
+        # generated path first, reference path 2nd
+        # join along channel dim
+        return torch.cat([aligned_x, x_2], dim=1)
 

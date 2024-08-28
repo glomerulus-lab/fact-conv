@@ -142,7 +142,10 @@ def train(epoch):
 
         optimizer.zero_grad()
         outputs = net(inputs)
-        if "pre_bn_alt_aligned_resnet18" in args.net:
+
+        # rainbow networks double the number of outputs
+        # due to the fact they have two networks
+        if "aligned" in args.net:
             targets = torch.cat([targets, targets], dim=0)
         loss = criterion(outputs, targets)
         loss.backward()
@@ -187,7 +190,10 @@ def test(epoch):
             if args.resample:
                 resample(net)
             outputs = net(inputs)#[:inputs.shape[0]]
-            if "pre_bn_alt_aligned_resnet18" in args.net:
+
+            # rainbow networks double the number of outputs
+            # due to the fact they have two networks
+            if "aligned" in args.net:
                 targets = torch.cat([targets, targets], dim=0)
             loss = criterion(outputs, targets)
 

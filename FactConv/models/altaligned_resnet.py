@@ -140,6 +140,10 @@ class Alignment(nn.Module):
                 x1.shape[-1]).permute(0, 3, 1, 2)
             x_2 = x2.reshape(-1, x.shape[2], x.shape[3],
                 x1.shape[-1]).permute(0, 3, 1, 2)
+            #print(self.size, self.rank)
+            #print(torch.cat([aligned_x, x_2], dim=0).shape)
+            #print(torch.cat([aligned_x, x_2], dim=0).shape)
+
 
         return torch.cat([aligned_x, x_2], dim=0)
 
