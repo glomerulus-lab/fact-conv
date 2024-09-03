@@ -31,6 +31,7 @@ def replace_layers_factconv2d(model):
             new_module = FactConv2d(
                     in_channels=module.in_channels,
                     out_channels=module.out_channels,
+            #        nonlinearity="abs",
                     kernel_size=module.kernel_size,
                     stride=module.stride, padding=module.padding, 
                     bias=True if module.bias is not None else False)

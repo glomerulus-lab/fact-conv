@@ -50,8 +50,8 @@ class FactConv2d(nn.Conv2d):
         channel_triu_size = self.in_channels // self.groups
         spatial_triu_size = self.kernel_size[0] * self.kernel_size[1]
 
-        self.channel = Covariance(channel_triu_size, nonlinearity)
-        self.spatial = Covariance(spatial_triu_size, nonlinearity)
+        self.channel = Covariance(channel_triu_size, "abs")
+        self.spatial = Covariance(spatial_triu_size, "abs")
 
     def forward(self, input: Tensor) -> Tensor:
         U1 = self.channel.sqrt()

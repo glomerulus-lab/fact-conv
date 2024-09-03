@@ -29,10 +29,10 @@ def save_model(args, model):
     src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/gmm_rainbow_cifar/"
     run_name\
-    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
+    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
             args.batchsize, args.rank,
             args.resample, args.width, args.seed, args.num_epochs,
-            args.channel_k)
+            args.channel_k, args.lr)
     model_dir =  src + run_name
     os.makedirs(model_dir, exist_ok=True)
     
@@ -52,7 +52,7 @@ parser.add_argument('--seed', default=0, type=int, help='seed to use')
 parser.add_argument('--double', default=0, type=int, help='seed to use')
 parser.add_argument('--gmm', default=0, type=int, help='seed to use')
 parser.add_argument('--resample', default=0, type=int, help='seed to use')
-parser.add_argument('--batchsize', default=256, type=int, help='seed to use')
+parser.add_argument('--batchsize', default=1024, type=int, help='seed to use')
 parser.add_argument('--rank', default=200, type=int, help='seed to use')
 
 parser.add_argument('--bias', default=0, type=int, help='seed to use')
@@ -100,6 +100,10 @@ class_map = {0:0, 1:1, 2:2, 3:3, 4:4, 5:3, 6:5, 7:6, 8:7, 9:8}
 print('==> Building model..')
 
 net = define_models(args)
+
+
+print("Total params: ", sum(p.numel() for p in net.parameters()))
+print("Learn params: ", sum(p.numel() for p in net.parameters() if p.requires_grad))
 run_name\
 = "rank{}_{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.channel_k, args.net, args.batchsize, args.rank,
         args.resample, args.width, args.seed, args.num_epochs)
@@ -109,7 +113,8 @@ set_seeds(args.seed)
 if args.double:
     net = net.double()
 net = net.to(device)
-wandb_dir = "../../wandb"
+#wandb_dir = "../../wandb"
+wandb_dir = "/home/mila/v/vivian.white/scratch/wandb/"
 os.makedirs(wandb_dir, exist_ok=True)
 
 run = wandb.init(project="FactConv", entity="whitev4", config=args,
