@@ -127,6 +127,102 @@ class NewAlignment(nn.Module):
             temp_cov = self.cov
             temp_total = self.total
             U, S, V = self.svd(self.cov/self.total, self.size)
+            #print(self.cov.shape, cov.shape, x1.shape)
+            #self.cov = cov + self.cov.detach()
+            self.cov = (.9)*cov + (0.1)*self.cov.detach()
+            temp_cov = self.cov
+            temp_total = 1#self.total
+            U, S, V = self.svd(self.cov/self.total, self.size)
+
+            V_h = V.T
+            alignment = U  @ V_h
+            self.alignment = alignment
+        else:
+            alignment = self.alignment
+        x1 =  x1@alignment
+
+        if x.ndim == 4:
+            aligned_x = x1.reshape(-1, x.shape[2], x.shape[3],
+                x1.shape[-1]).permute(0, 3, 1, 2)
+            x_2 = x2.reshape(-1, x.shape[2], x.shape[3],
+                x1.shape[-1]).permute(0, 3, 1, 2)
+        #return aligned_x
+        return torch.cat([aligned_x, x_2], dim=1)
+
+class NewAltAlignment(nn.Module):
+    """Procurstes Alignment module.
+
+    This module splits the input along the channel/2nd dimension into the generated
+    path and reference path, calculates the cross-covariance, and then
+    calculates the alignment. 
+
+    Parameters
+    ----------
+    size : int
+        Tells the low-rank SVD solver what rank to calculate. Divided by 2. 
+    rank : int
+        Simply holds the unmodified size of what rank to calculate. rank = size*2
+    state: int
+        Notes if we are using the generated (0) or reference (1) path. Usually
+        modified by recursive function.
+    x : tensor
+        Input tensor with at least 2 dimensions. If 4-dimensional we reshape
+        the paths such that the channel dimension is in the 2nd dimension and
+        all other dimensions (batch x spatial) are combined into the first dimension. 
+    mode : str
+        "Momentum" if we are in momentum mode or "Average" if we are in
+        average mode during training
+    mom: float
+        Momentum value
+    """
+    def __init__(self, size, rank, mode='momentum', mom=1.0):
+        super().__init__()
+        self.svd = SVD.apply
+        self.rank = rank
+        if size < rank+1:
+            self.size = size//2
+        else:
+            self.size = rank
+        self.cov = torch.zeros((rank,rank)).cuda()
+        self.total = 0
+        self.state=0
+        self.mode=mode
+        self.mom=mom
+
+    def reset(self):
+        self.cov = torch.zeros((rank,rank)).cuda()
+
+    def forward(self, x):
+
+        if self.state == 1:
+            return x
+        # changing path
+        x1 = x[0 : x.shape[0]//2]
+        # fixed path
+        x2 = x[x.shape[0]//2 : ]
+
+        #print(x1.shape, self.rank, self.size)
+        
+        if x.ndim == 4:
+            x1 = x1.permute(0, 2, 3, 1)
+            x1 = x1.reshape((-1, x1.shape[-1]))
+            
+            x2 = x2.permute(0, 2, 3, 1)
+            x2 = x2.reshape((-1, x2.shape[-1]))
+        if self.training:
+            cov = x1.T@x2
+            self.total += x1.shape[0]
+
+            if self.mode == "average":
+                self.cov = cov + self.cov.detach()
+                temp_cov = self.cov
+                temp_total = self.total
+                U, S, V = self.svd(self.cov/self.total, self.size)
+
+            elif self.mode == "momentum":
+                #self.cov = (.1)*cov + (0.9)*self.cov.detach()
+                self.cov = (self.mom)*cov + (1-self.mom)*self.cov.detach()
+                U, S, V = self.svd(self.cov, self.size)
 
             V_h = V.T
             alignment = U  @ V_h
