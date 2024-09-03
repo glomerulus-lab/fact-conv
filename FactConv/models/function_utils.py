@@ -3,6 +3,7 @@ import torch.nn as nn
 from conv_modules import FactConv2d, FactProjConv2d, DiagFactConv2d,\
 DiagChanFactConv2d, ResamplingDoubleFactConv2d, OffFactConv2d, GMMFactConv2d,\
 NewResamplingDoubleFactConv2d
+from .altaligned_resnet import Alignment as AltAlignment
 from align import Alignment
 from V1_covariance import V1_init
 from decomp_modules import EighFactConv2d, RQFactConv2d, RQDoubleFactConv2d,\
@@ -10,6 +11,7 @@ RQLeftFactConv2d, RQLeftDoubleFactConv2d, EighFixedFactConv2d,\
 EighFixedDoubleFactConv2d,EighDoubleFactConv2d 
 from lr_diag import LowRankDiagResamplingDoubleFactConv2d
 from torch.nn.utils.parametrizations import orthogonal
+
 
 def recurse_preorder(model, callback):
     r = callback(model)
@@ -476,6 +478,13 @@ def replace_layers_scale(model, scale=1):
                     int(module.rank*scale))
             print(new_module.size, new_module.rank, )
             return new_module
+        if isinstance(module, AltAlignment):
+            #print(module.size, module.rank, )
+            new_module = AltAlignment(int(module.rank*scale),
+                    int(module.rank*scale))
+            #print(new_module.size, new_module.rank, )
+            return new_module
+ 
     return recurse_preorder(model, _replace_layers_scale)
 
 def replace_layers_gmm(model, k=1):

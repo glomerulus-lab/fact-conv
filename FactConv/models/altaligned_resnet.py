@@ -111,7 +111,11 @@ class Alignment(nn.Module):
             self.size = size//2
         else:
             self.size = rank
+        #self.state=0
+        self.cov = torch.zeros((rank,rank)).cuda()
+        self.total = 0
         self.state=0
+        self.mom =1.0
 
     def forward(self, x):
 
@@ -122,6 +126,7 @@ class Alignment(nn.Module):
         # fixed path
         x2 = x[x.shape[0]//2 : ]
 
+        #print(x1.shape, self.rank, self.size)
         
         if x.ndim == 4:
             x1 = x1.permute(0, 2, 3, 1)
@@ -129,10 +134,31 @@ class Alignment(nn.Module):
             
             x2 = x2.permute(0, 2, 3, 1)
             x2 = x2.reshape((-1, x2.shape[-1]))
-        cov = x1.T@(x2)#.detach())
-        U, S, V = self.svd(cov, self.size)
-        V_h = V.T
-        alignment = U  @ V_h
+        if self.training:
+            cov = x1.T@x2
+            self.total += x1.shape[0]
+            #0.9
+            #0.7
+            self.cov = (self.mom)*cov + (1-self.mom)*self.cov.detach()
+            #print("WE MOMENTUM AVG")
+            temp_cov = self.cov
+            temp_total = self.total
+            U, S, V = self.svd(self.cov, self.size)
+
+            V_h = V.T
+            alignment = U  @ V_h
+            #self.alignment = alignment
+        else:
+            cov = x1.T@x2
+            total = x1.shape[0]
+            #temp_cov = (.9)*cov + (0.1)*self.cov.detach()
+            temp_cov = (self.mom)*cov + (1-self.mom)*self.cov.detach()
+            temp_total = self.total
+            U, S, V = self.svd(temp_cov, self.size)
+            V_h = V.T
+            alignment = U  @ V_h
+            #self.alignment = alignment
+ 
         x1 =  x1@alignment
 
         if x.ndim == 4:
@@ -140,9 +166,6 @@ class Alignment(nn.Module):
                 x1.shape[-1]).permute(0, 3, 1, 2)
             x_2 = x2.reshape(-1, x.shape[2], x.shape[3],
                 x1.shape[-1]).permute(0, 3, 1, 2)
-            #print(self.size, self.rank)
-            #print(torch.cat([aligned_x, x_2], dim=0).shape)
-            #print(torch.cat([aligned_x, x_2], dim=0).shape)
 
 
         return torch.cat([aligned_x, x_2], dim=0)
@@ -153,7 +176,9 @@ class NewBatchNorm(nn.Module):
         super(NewBatchNorm, self).__init__()
         self.bn1 = nn.BatchNorm2d(planes, track_running_stats=True)
         self.bn2 = nn.BatchNorm2d(planes, track_running_stats=True)
-
+        self.gen_dropout = 0.0
+        self.ref_dropout = 0.0
+        self.state = 0
 
     def forward(self, x):
         # changing path
@@ -161,11 +186,29 @@ class NewBatchNorm(nn.Module):
         # fixed path
         x2 = x[x.shape[0]//2 : ]
 
-        x1=self.bn1(x1)
-        x2=self.bn2(x2)
+        # corresponds to always sampling generated pathway
+        prob = torch.cuda.FloatTensor(1).uniform_(0, 1)
+        if prob < self.gen_dropout and self.training and self.state == 0:
+            x1=self.bn1(x1)
+            return torch.cat([x1, x1], dim=0)
+        elif prob > 1-self.ref_dropout and self.training and self.state == 0:
+            x2=self.bn2(x2)
+            return torch.cat([x2, x2], dim=0)
+        else:
+            x1=self.bn1(x1)
+            x2=self.bn2(x2)
+            return torch.cat([x1, x2], dim=0)
 
-        return torch.cat([x1, x2], dim=0)
-
+        #if prob <= 0.1 and self.training:
+        #    return torch.cat([x1, x1], dim=0)
+        ##elif prob >= 0.5 and self.training:
+        ##    return torch.cat([x2, x2], dim=0)
+        #else:
+        #    return torch.cat([x1, x2], dim=0)
+        #    #return torch.cat([x1, x2], dim=0)
+        #x1=self.bn1(x1)
+        #x2=self.bn2(x2)
+        #return torch.cat([x1, x2], dim=0)
 
 
 class BasicBlock(nn.Module):

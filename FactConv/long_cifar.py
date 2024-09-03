@@ -13,13 +13,7 @@ import wandb
 from distutils.util import strtobool
 from models import define_models
 from conv_modules import ResamplingDoubleFactConv2d
-
-def resample(model):
-    for (n1, m1) in model.named_children():
-        if len(list(m1.children())) > 0:
-            resample(m1)
-        if isinstance(m1, nn.Conv2d):# ResamplingDoubleFactConv2d):
-            m1.resample()
+from models.altaligned_resnet import NewBatchNorm, Alignment
 
 def save_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_rainbow_cifar/"
@@ -27,6 +21,7 @@ def save_model(args, model):
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/retry_recent_new_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/final_rainbows/"
+    #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/testing_final_rainbows/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/gmm_rainbow_cifar/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
             args.batchsize, args.rank,
@@ -58,7 +53,65 @@ parser.add_argument('--bias', default=0, type=int, help='seed to use')
 
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
 
+parser.add_argument('--quench', default=0.0, type=float, help='quenching rate. 0 never quench, 1 always quench')
+parser.add_argument('--momentum', default=1.0, type=float, help='momentum averaging in cross-covariance calculation. 1 use current cross-covariance, 0 use previous cross-covariance')
+parser.add_argument('--ref_dropout', default=0.0, type=float, help='dropout reference path rate. 0 never drop, 1 always drop and replace with generated/aligned path')
+parser.add_argument('--gen_dropout', default=0.0, type=float, help='dropout generated path rate. 0 never drop, 1 always drop and replace with reference path')
+parser.add_argument('--global_rate', default=0.0, type=float, help='do we use global paths (reference+generated network are seperate) or local paths (mix reference+generated network paths). 0 always use global, 1 always use local.')
+
 args = parser.parse_args()
+def resample(model):
+    for (n1, m1) in model.named_children():
+        if len(list(m1.children())) > 0:
+            resample(m1)
+        if isinstance(m1, nn.Conv2d):# ResamplingDoubleFactConv2d):
+            prob = torch.cuda.FloatTensor(1).uniform_(0, 1)
+            if prob > args.quench:
+                m1.resample()
+def state_set(model, state=-1):
+    if state == -1:
+        prob = torch.cuda.FloatTensor(1).uniform_(0, 1)
+        if prob >= args.global_rate:
+            state = 1
+        else:
+            state = 0
+    state_set_helper(model, state)
+    return state
+
+
+
+def state_set_helper(model, state):
+    for (n1, m1) in model.named_children():
+        if len(list(m1.children())) > 0:
+            state_set_helper(m1, state)
+        if isinstance(m1, NewBatchNorm):# ResamplingDoubleFactConv2d):
+            #prob = torch.cuda.FloatTensor(1).uniform_(0, 1)
+            #if prob >= .9:
+            m1.state = state
+
+def setup(model):
+    for (n1, m1) in model.named_children():
+        if len(list(m1.children())) > 0:
+            setup(m1)
+        if isinstance(m1, NewBatchNorm):
+            m1.gen_dropout = args.gen_dropout
+            m1.ref_dropout = args.ref_dropout
+
+        if isinstance(m1, Alignment):
+            m1.momentum = args.momentum
+
+def check(model):
+    for (n1, m1) in model.named_children():
+        if len(list(m1.children())) > 0:
+            check(m1)
+
+        if isinstance(m1, NewBatchNorm):
+            print(m1.gen_dropout, m1.ref_dropout)
+
+        if isinstance(m1, Alignment):
+            #m1.momentum = args.momentum
+            print(m1.momentum)
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
@@ -97,7 +150,10 @@ class_map = {0:0, 1:1, 2:2, 3:3, 4:4, 5:3, 6:5, 7:6, 8:7, 9:8}
 print('==> Building model..')
 
 net = define_models(args)
-run_name = "{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net, args.batchsize, args.rank, args.double,
+
+new_string="quench_{}_mom_{}_ref_dropout_{}_gen_dropout_{}_global_{}".format(args.quench, args.momentum, args.ref_dropout, args.gen_dropout,args.global_rate)
+run_name= "{}_{}_batchsize_{}_rank_{}_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
+        new_string, args.batchsize, args.rank, args.double,
         args.resample, args.width, args.seed, args.num_epochs)
 print("Args.net: ", args.net)
 print("Net: ", net)
@@ -114,7 +170,8 @@ os.chdir(wandb_dir)
 run = wandb.init(project="FactConv", entity="muawizc", config=args,
         group="testing_saving_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
-
+setup(net)
+check(net)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
@@ -139,8 +196,9 @@ def train(epoch):
             inputs = inputs.double()
         if args.resample:
             resample(net)
-
+        state_set(net)
         optimizer.zero_grad()
+
         outputs = net(inputs)
 
         # rainbow networks double the number of outputs
@@ -187,8 +245,9 @@ def test(epoch):
             inputs, targets = inputs.to(device), targets.to(device)
             if args.double:
                 inputs = inputs.double()
-            if args.resample:
-                resample(net)
+            #if args.resample:
+            #    resample(net)
+            state_set(net, 1)
             outputs = net(inputs)#[:inputs.shape[0]]
 
             # rainbow networks double the number of outputs

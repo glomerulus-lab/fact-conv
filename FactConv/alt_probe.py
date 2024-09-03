@@ -13,16 +13,23 @@ import wandb
 from distutils.util import strtobool
 from models import define_models
 from conv_modules import ResamplingDoubleFactConv2d, FactConv2d
-from copy_align import NewAlignment
+from copy_align import NewAlignment, NewAltAlignment
 from align import Alignment
+from models.altaligned_resnet import Alignment as AltAlignment
 import math
 
+convert={64: 256, 128:512, 256:1024, 512:2048}
 def realign(model):
     for (n1, m1) in model.named_children():
         if len(list(m1.children())) > 0:
             realign(m1)
         if isinstance(m1, Alignment):
             setattr(model, n1, NewAlignment(m1.rank, m1.rank))
+
+        if isinstance(m1, AltAlignment):
+            setattr(model, n1, NewAltAlignment(m1.rank,m1.rank))
+            #setattr(model, n1, NewAltAlignment(m1.rank, convert[m1.rank]                ))
+
 def state_switch(model, state=0):
     for (n1, m1) in model.named_children():
         if len(list(m1.children())) > 0:
@@ -276,6 +283,7 @@ def train(epoch, state=1, num_ensemble_samples=10):
         net.train()
     else:
         net.eval()
+    #net.train()
     train_loss = 0
     correct = 0
     total = 0
@@ -380,28 +388,29 @@ net.cuda()
 #biason(net)
 #resample_infinite(net)
 #factconv(net)
-print(net)
+#print(net)
 
 # wanna evaluate generated, reference, and ensemble + adapted networks.
 if "align" in args.net:
     # one sample
     resample(net)
 
-    net.cuda()
+    #net.cuda()
     test(0, 1)
     recorder['sampled_net'] = logger['accuracy']
     
     # reference network
     test(0, 3)
     recorder['reference_net'] = logger['accuracy']
-    
-    test(0, 2, 10)
-    recorder['ensemble_10'] = logger['accuracy']
+    #
+    #test(0, 2, 10)
+    #recorder['ensemble_10'] = logger['accuracy']
 
     set_seeds(args.resampling_seed)
     resample(net)
     if args.statistics:
         realign(net)
+    #print(net)
     for epoch in range(0, 5):
         train(epoch, 1)
         test(epoch, 1)
