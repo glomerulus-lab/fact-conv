@@ -166,8 +166,13 @@ class NewAltAlignment(nn.Module):
         Input tensor with at least 2 dimensions. If 4-dimensional we reshape
         the paths such that the channel dimension is in the 2nd dimension and
         all other dimensions (batch x spatial) are combined into the first dimension. 
+    mode : str
+        "Momentum" if we are in momentum mode or "Average" if we are in
+        average mode during training
+    mom: float
+        Momentum value
     """
-    def __init__(self, size, rank):
+    def __init__(self, size, rank, mode='momentum', mom=1.0):
         super().__init__()
         self.svd = SVD.apply
         self.rank = rank
@@ -178,6 +183,11 @@ class NewAltAlignment(nn.Module):
         self.cov = torch.zeros((rank,rank)).cuda()
         self.total = 0
         self.state=0
+        self.mode=mode
+        self.mom=mom
+
+    def reset(self):
+        self.cov = torch.zeros((rank,rank)).cuda()
 
     def forward(self, x):
 
@@ -198,15 +208,18 @@ class NewAltAlignment(nn.Module):
             x2 = x2.reshape((-1, x2.shape[-1]))
         if self.training:
             cov = x1.T@x2
-            #print(self.cov.shape, cov.shape, x1.shape)
             self.total += x1.shape[0]
-            self.cov = cov + self.cov.detach()
-            #self.cov = (.1)*cov + (0.9)*self.cov.detach()
-            #self.cov = (.9)*cov + (0.1)*self.cov.detach()
-            temp_cov = self.cov
-            temp_total = self.total
-            U, S, V = self.svd(self.cov/self.total, self.size)
-            #U, S, V = self.svd(self.cov, self.size)
+
+            if self.mode == "average":
+                self.cov = cov + self.cov.detach()
+                temp_cov = self.cov
+                temp_total = self.total
+                U, S, V = self.svd(self.cov/self.total, self.size)
+
+            elif self.mode == "momentum":
+                #self.cov = (.1)*cov + (0.9)*self.cov.detach()
+                self.cov = (self.mom)*cov + (1-self.mom)*self.cov.detach()
+                U, S, V = self.svd(self.cov, self.size)
 
             V_h = V.T
             alignment = U  @ V_h

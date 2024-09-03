@@ -19,7 +19,7 @@ from models.altaligned_resnet import Alignment as AltAlignment
 import math
 
 convert={64: 256, 128:512, 256:1024, 512:2048}
-def realign(model):
+def realign(model, mode, mom):
     for (n1, m1) in model.named_children():
         if len(list(m1.children())) > 0:
             realign(m1)
@@ -27,7 +27,8 @@ def realign(model):
             setattr(model, n1, NewAlignment(m1.rank, m1.rank))
 
         if isinstance(m1, AltAlignment):
-            setattr(model, n1, NewAltAlignment(m1.rank,m1.rank))
+            setattr(model, n1, NewAltAlignment(m1.rank,m1.rank, mode,
+                mom))
             #setattr(model, n1, NewAltAlignment(m1.rank, convert[m1.rank]                ))
 
 def state_switch(model, state=0):
@@ -106,6 +107,13 @@ def resample(model):
         if isinstance(m1,nn.Conv2d):# ResamplingDoubleFactConv2d):
             m1.resample()
 
+def reset(model):
+    for (n1, m1) in model.named_children():
+        if len(list(m1.children())) > 0:
+            reset(m1)
+        if isinstance(m1, NewAltAlignment):
+            m1.reset()
+
 
 def load_model(args, model):
     #src="../saved-models/Long_Cifar_ResNets/"
@@ -115,7 +123,7 @@ def load_model(args, model):
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
-    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/final_rainbows/"
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/final_rainbows/"
     run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
@@ -250,11 +258,11 @@ set_seeds(0)
 if args.double:
     net = net.double()
 net = net.to(device)
-wandb_dir = "../../wandb"
+wandb_dir = "/home/mila/v/vivian.white/scratch/wandb/"
 os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
-run = wandb.init(project="FactConv", entity="muawizc", config=args,
+run = wandb.init(project="FactConv", entity="whitev4", config=args,
         group="final_loading_probing_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 sd = load_model(args, net)
@@ -281,6 +289,15 @@ def train(epoch, state=1, num_ensemble_samples=10):
     print('\nEpoch: %d' % epoch)
     if args.statistics:
         net.train()
+        realign(net)
+        args.optimization = 0
+        def eval_mode(net):                                            
+            for (n1, m1) in net.named_children():                      
+                if len(list(m1.children())) > 0:                         
+                    eval_mode(m1)                                          
+                if isinstance(m1, nn.BatchNorm2d):                            
+                    m1.eval()
+        eval_mode(net)
     else:
         net.eval()
     #net.train()
@@ -406,15 +423,28 @@ if "align" in args.net:
     #test(0, 2, 10)
     #recorder['ensemble_10'] = logger['accuracy']
 
+    # Run the Momentum-based collecting
     set_seeds(args.resampling_seed)
     resample(net)
     if args.statistics:
-        realign(net)
+        realign(net, mode='momentum', mom=1.0)
     #print(net)
     for epoch in range(0, 5):
         train(epoch, 1)
         test(epoch, 1)
-        recorder['adapted_{}'.format(epoch+1)] = logger['accuracy']
+        recorder['adapted_mom_{}'.format(epoch+1)] = logger['accuracy']
+
+    # Reset the NewAltAlignment covariance to 0
+    reset(net)
+
+    # Run the Average-based collecting
+    if args.statistics:
+        realign(net, mode='average')
+    #print(net)
+    for epoch in range(0, 5):
+        train(epoch, 1)
+        test(epoch, 1)
+        recorder['adapted_avg_{}'.format(epoch+1)] = logger['accuracy']
 else:
     # just evaluate standard conv or SRF networks
     test(0, 0)
