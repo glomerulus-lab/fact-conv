@@ -165,7 +165,7 @@ parser.add_argument('--gmm', default=0, type=int, help='seed to use')
 parser.add_argument('--t', default=0, type=float, help='seed to use')
 parser.add_argument('--bn_statistics', default=1, type=int)
 parser.add_argument('--align_statistics', default=1, type=int)
-parser.add_argument('--replace_align', default=1, type=int)
+parser.add_argument('--replace_align', default=0, type=int)
 parser.add_argument('--mom', default=1.0, type=float, help='momentum value')
 parser.add_argument('--mode', default='average', type=str, choices=['average', 'momentum'], help='average or momentum collection')
 
@@ -298,18 +298,18 @@ def replace_align(net):
         if len(list(m1.children())) > 0:                         
             replace_align(m1)                                          
         if isinstance(m1, Alignment): 
-            new = NewAltAlignment(m1.size, m1.rank, args.mode, args.mom)
-            setattr(net, n1, new)
+            new_module = NewAltAlignment(m1.size, m1.rank, args.mode, args.mom)
+            setattr(net, n1, new_module)
             
 if args.replace_align:
-    print("Replacing alignment")
     replace_align(net)
+
 # Training
 def train(epoch, state=0, num_ensemble_samples=10):
     print('\nEpoch: %d' % epoch)
 
     if args.bn_statistics:
-        print("BN Statistics")
+        print("Train BN Statistics")
         def train_bn(net):                                            
             for (n1, m1) in net.named_children():                      
                 if len(list(m1.children())) > 0:                         
@@ -317,10 +317,10 @@ def train(epoch, state=0, num_ensemble_samples=10):
                 if isinstance(m1, nn.BatchNorm2d): 
                     m1.train()
         train_bn(net)
-    if args.align_statistics:
-        print("Align statistics")
-        net.train()
-        realign(net, mode='average', mom=1.0)
+#    if args.align_statistics:
+#        print("Align statistics")
+#        net.train()
+#        realign(net, mode='average', mom=1.0)
     else:
         print("No statistics")
         net.eval()
@@ -355,6 +355,7 @@ def train(epoch, state=0, num_ensemble_samples=10):
         loss.backward()
 
         if args.optimize:
+            print("Optimize Linear Layer")
             optimizer.step()
         train_loss += loss.item()
         _, predicted = outputs.max(1)
