@@ -22,7 +22,7 @@ convert={64: 256, 128:512, 256:1024, 512:2048}
 def realign(model, mode, mom):
     for (n1, m1) in model.named_children():
         if len(list(m1.children())) > 0:
-            realign(m1)
+            realign(m1, mode, mom)
         if isinstance(m1, Alignment):
             setattr(model, n1, NewAlignment(m1.rank, m1.rank))
 
@@ -123,12 +123,16 @@ def load_model(args, model):
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
-    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/final_rainbows/"
-    run_name = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}".format(args.net,
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
+    #run_name\
+    #= "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
+    run_name=\
+    "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
-            args.double, args.resample,
-              args.width, args.seed, args.num_epochs)
+            args.resample,
+              args.width, args.seed, args.num_epochs,
+              args.channel_k, args.lr)
     sd = torch.load(src+run_name+"/model.pt")
     #for key in sd.keys():
     #    if "resampling_weight" in key:
@@ -159,6 +163,11 @@ parser.add_argument('--bias', default=0, type=int, help='seed to use')
 parser.add_argument('--width', type=float, default=1, help='resnet width scale factor')
 parser.add_argument('--gmm', default=0, type=int, help='seed to use')
 parser.add_argument('--t', default=0, type=float, help='seed to use')
+parser.add_argument('--bn_statistics', default=1, type=int)
+parser.add_argument('--align_statistics', default=1, type=int)
+parser.add_argument('--replace_align', default=1, type=int)
+parser.add_argument('--mom', default=1.0, type=float, help='momentum value')
+parser.add_argument('--mode', default='average', type=str, choices=['average', 'momentum'], help='average or momentum collection')
 
 args = parser.parse_args()
 
@@ -284,21 +293,36 @@ optimizer = optim.SGD(parameters, lr=0.1, momentum=0.9,
 args.resample=0
 logger = {}
 
+def replace_align(net):                                            
+    for (n1, m1) in net.named_children():                      
+        if len(list(m1.children())) > 0:                         
+            replace_align(m1)                                          
+        if isinstance(m1, Alignment): 
+            new = NewAltAlignment(m1.size, m1.rank, args.mode, args.mom)
+            setattr(net, n1, new)
+            
+if args.replace_align:
+    print("Replacing alignment")
+    replace_align(net)
 # Training
-def train(epoch, state=1, num_ensemble_samples=10):
+def train(epoch, state=0, num_ensemble_samples=10):
     print('\nEpoch: %d' % epoch)
-    if args.statistics:
-        net.train()
-        realign(net)
-        args.optimization = 0
-        def eval_mode(net):                                            
+
+    if args.bn_statistics:
+        print("BN Statistics")
+        def train_bn(net):                                            
             for (n1, m1) in net.named_children():                      
                 if len(list(m1.children())) > 0:                         
-                    eval_mode(m1)                                          
-                if isinstance(m1, nn.BatchNorm2d):                            
-                    m1.eval()
-        eval_mode(net)
+                    train_bn(m1)                                          
+                if isinstance(m1, nn.BatchNorm2d): 
+                    m1.train()
+        train_bn(net)
+    if args.align_statistics:
+        print("Align statistics")
+        net.train()
+        realign(net, mode='average', mom=1.0)
     else:
+        print("No statistics")
         net.eval()
     #net.train()
     train_loss = 0
@@ -410,21 +434,24 @@ net.cuda()
 # wanna evaluate generated, reference, and ensemble + adapted networks.
 if "align" in args.net:
     # one sample
+    set_seeds(args.resampling_seed)
     resample(net)
-
-    #net.cuda()
-    test(0, 1)
+    net.cuda()
+    test(0,0)
+    resample(net)
     recorder['sampled_net'] = logger['accuracy']
+    #net.cuda()
+#    test(0, 1)
+#    recorder['sampled_net'] = logger['accuracy']
     
     # reference network
-    test(0, 3)
-    recorder['reference_net'] = logger['accuracy']
+#    test(0, 3)
+#    recorder['reference_net'] = logger['accuracy']
     #
     #test(0, 2, 10)
     #recorder['ensemble_10'] = logger['accuracy']
 
     # Run the Momentum-based collecting
-    set_seeds(args.resampling_seed)
     resample(net)
     if args.statistics:
         realign(net, mode='momentum', mom=1.0)
@@ -435,6 +462,8 @@ if "align" in args.net:
         recorder['adapted_mom_{}'.format(epoch+1)] = logger['accuracy']
 
     # Reset the NewAltAlignment covariance to 0
+    sd = load_model(args, net)
+    net.load_state_dict(sd)
     reset(net)
 
     # Run the Average-based collecting
