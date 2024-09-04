@@ -355,7 +355,6 @@ def train(epoch, state=0, num_ensemble_samples=10):
         loss.backward()
 
         if args.optimize:
-            print("Optimize Linear Layer")
             optimizer.step()
         train_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -436,15 +435,36 @@ net.cuda()
 if "align" in args.net:
     # one sample
     set_seeds(args.resampling_seed)
+
+    # Vivian Unadapted MiniBatch Alignment Experiment
     resample(net)
-    net.cuda()
     test(0,0)
-    resample(net)
     recorder['sampled_net'] = logger['accuracy']
-    #net.cuda()
-#    test(0, 1)
-#    recorder['sampled_net'] = logger['accuracy']
+
+
+    # Vivian Unadapted TrainSet Alignment Experiment
+    # no bn stats collection and/or linear layer adaptation
+    args.bn_statistics = 0
+    args.optimization = 0
+    train(0, 0)
+    test(0, 0)
+    recorder['sampled_net'] = logger['accuracy']
     
+    # Vivian Adapted MiniBatch Alignment Experiment
+    args.bn_statistics = 1
+    net.load_state_dict(sd)
+    net.cuda()
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, 0)
+        recorder['adapted_{}'.format(epoch+1)] = logger['accuracy']
+
+    # Vivian Adapted TrainSet Alignment Experiment
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, 0)
+        recorder['adapted_{}'.format(epoch+1)] = logger['accuracy']
+
     # reference network
 #    test(0, 3)
 #    recorder['reference_net'] = logger['accuracy']
@@ -453,28 +473,27 @@ if "align" in args.net:
     #recorder['ensemble_10'] = logger['accuracy']
 
     # Run the Momentum-based collecting
-    resample(net)
-    if args.statistics:
-        realign(net, mode='momentum', mom=1.0)
+#    resample(net)
+#    if args.statistics:
+#        realign(net, mode='momentum', mom=1.0)
     #print(net)
-    for epoch in range(0, 5):
-        train(epoch, 1)
-        test(epoch, 1)
-        recorder['adapted_mom_{}'.format(epoch+1)] = logger['accuracy']
+#    for epoch in range(0, 5):
+#        train(epoch, 1)
+#        test(epoch, 1)
+#        recorder['adapted_mom_{}'.format(epoch+1)] = logger['accuracy']
 
     # Reset the NewAltAlignment covariance to 0
-    sd = load_model(args, net)
-    net.load_state_dict(sd)
-    reset(net)
+#    sd = load_model(args, net)
+#    net.load_state_dict(sd)
+#    reset(net)
 
     # Run the Average-based collecting
-    if args.statistics:
-        realign(net, mode='average')
-    #print(net)
-    for epoch in range(0, 5):
-        train(epoch, 1)
-        test(epoch, 1)
-        recorder['adapted_avg_{}'.format(epoch+1)] = logger['accuracy']
+#    if args.statistics:
+#        realign(net, mode='average')
+#    for epoch in range(0, 5):
+#        train(epoch, 1)
+#        test(epoch, 1)
+#        recorder['adapted_avg_{}'.format(epoch+1)] = logger['accuracy']
 else:
     # just evaluate standard conv or SRF networks
     test(0, 0)
