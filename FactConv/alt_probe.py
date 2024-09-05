@@ -111,7 +111,7 @@ def reset(model):
     for (n1, m1) in model.named_children():
         if len(list(m1.children())) > 0:
             reset(m1)
-        if isinstance(m1, NewAltAlignment):
+        if isinstance(m1, NewAlignment):
             m1.reset()
 
 
@@ -167,7 +167,7 @@ parser.add_argument('--bn_statistics', default=1, type=int)
 parser.add_argument('--align_statistics', default=1, type=int)
 parser.add_argument('--replace_align', default=0, type=int)
 parser.add_argument('--mom', default=1.0, type=float, help='momentum value')
-parser.add_argument('--mode', default='average', type=str, choices=['average', 'momentum'], help='average or momentum collection')
+parser.add_argument('--mode', default='momentum', type=str, choices=['average', 'momentum'], help='average or momentum collection')
 
 args = parser.parse_args()
 
@@ -298,18 +298,17 @@ def replace_align(net):
         if len(list(m1.children())) > 0:                         
             replace_align(m1)                                          
         if isinstance(m1, Alignment): 
-            new_module = NewAltAlignment(m1.size, m1.rank, args.mode, args.mom)
+            new_module = NewAlignment(m1.rank, m1.rank, args.mode, args.mom)
             setattr(net, n1, new_module)
             
-if args.replace_align:
-    replace_align(net)
+#if args.replace_align:
+#    replace_align(net)
 
 # Training
 def train(epoch, state=0, num_ensemble_samples=10):
     print('\nEpoch: %d' % epoch)
 
     if args.bn_statistics:
-        print("Train BN Statistics")
         def train_bn(net):                                            
             for (n1, m1) in net.named_children():                      
                 if len(list(m1.children())) > 0:                         
@@ -317,12 +316,15 @@ def train(epoch, state=0, num_ensemble_samples=10):
                 if isinstance(m1, nn.BatchNorm2d): 
                     m1.train()
         train_bn(net)
-#    if args.align_statistics:
-#        print("Align statistics")
-#        net.train()
-#        realign(net, mode='average', mom=1.0)
+    if args.align_statistics:
+        def train_align(net):                                            
+            for (n1, m1) in net.named_children():                      
+                if len(list(m1.children())) > 0:                         
+                    train_align(m1)                                          
+                if isinstance(m1, NewAlignment): 
+                    m1.train()
+        train_align(net)
     else:
-        print("No statistics")
         net.eval()
     #net.train()
     train_loss = 0
@@ -427,7 +429,7 @@ set_seeds(args.resampling_seed)
 net.cuda()
 #state_switch(net, 0)
 #biason(net)
-#resample_infinite(net)
+resample_infinite(net)
 #factconv(net)
 #print(net)
 
@@ -435,31 +437,43 @@ net.cuda()
 if "align" in args.net:
     # one sample
     set_seeds(args.resampling_seed)
+    resample(net)
+    resampled_sd = net.state_dict()
 
     # Vivian Unadapted MiniBatch Alignment Experiment
-    resample(net)
+    print("Unadapted MiniBatch")
+    net.load_state_dict(resampled_sd)
     test(0,0)
     recorder['sampled_net'] = logger['accuracy']
 
-
-    # Vivian Unadapted TrainSet Alignment Experiment
-    # no bn stats collection and/or linear layer adaptation
-    args.bn_statistics = 0
-    args.optimization = 0
-    train(0, 0)
-    test(0, 0)
-    recorder['sampled_net'] = logger['accuracy']
-    
-    # Vivian Adapted MiniBatch Alignment Experiment
+    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm
+    # Use the pretrained model
+    print("Adapted MiniBatch")
+    net.load_state_dict(resampled_sd)
     args.bn_statistics = 1
-    net.load_state_dict(sd)
-    net.cuda()
     for epoch in range(0, 5):
         train(epoch, 0)
         test(epoch, 0)
         recorder['adapted_{}'.format(epoch+1)] = logger['accuracy']
 
-    # Vivian Adapted TrainSet Alignment Experiment
+    # Vivian Unadapted TrainSet Alignment Experiment
+    # no bn stats collection and/or linear layer adaptation
+    print("Unadapted TrainSet")
+    net.load_state_dict(resampled_sd)
+    replace_align(net)
+    args.bn_statistics = 0
+    args.optimization = 0
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, 0)
+        recorder['sampled_net'] = logger['accuracy']
+
+    reset(net)
+    
+    # Vivian Adapted TrainSet Alignment Experiment With BatchNorm
+    print("Adapted TrainSet")
+    net.load_state_dict(resampled_sd)
+    args.bn_statistics = 1
     for epoch in range(0, 5):
         train(epoch, 0)
         test(epoch, 0)
