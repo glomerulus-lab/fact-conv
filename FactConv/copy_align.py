@@ -96,7 +96,7 @@ class NewAlignment(nn.Module):
     alignment : tensor
         Alignment matrix which is calculated from cov and then stored.
     """
-    def __init__(self, size, rank):
+    def __init__(self, size, rank, mode='momentum', mom=1.0):
         super().__init__()
         self.svd = SVD.apply
         self.rank = rank
@@ -106,6 +106,11 @@ class NewAlignment(nn.Module):
             self.size = rank
         self.cov = torch.zeros((rank,rank)).cuda()
         self.total = 0
+        self.mode=mode
+        self.mom=mom
+
+    def reset(self):
+        self.cov = torch.zeros((self.rank,self.rank)).cuda()
 
     def forward(self, x):
         # changing path
@@ -123,16 +128,16 @@ class NewAlignment(nn.Module):
         if self.training:
             cov = x1.T@x2
             self.total += x1.shape[0]
-            self.cov = cov + self.cov.detach()
-            temp_cov = self.cov
-            temp_total = self.total
-            U, S, V = self.svd(self.cov/self.total, self.size)
-            #print(self.cov.shape, cov.shape, x1.shape)
-            #self.cov = cov + self.cov.detach()
-            self.cov = (.9)*cov + (0.1)*self.cov.detach()
-            temp_cov = self.cov
-            temp_total = 1#self.total
-            U, S, V = self.svd(self.cov/self.total, self.size)
+            if self.mode == "average":
+                self.cov = cov + self.cov.detach()
+                temp_cov = self.cov
+                temp_total = self.total
+                U, S, V = self.svd(self.cov/self.total, self.size)
+
+            elif self.mode == "momentum":
+                #self.cov = (.1)*cov + (0.9)*self.cov.detach()
+                self.cov = (self.mom)*cov + (1-self.mom)*self.cov.detach()
+                U, S, V = self.svd(self.cov, self.size)
 
             V_h = V.T
             alignment = U  @ V_h
@@ -146,8 +151,8 @@ class NewAlignment(nn.Module):
                 x1.shape[-1]).permute(0, 3, 1, 2)
             x_2 = x2.reshape(-1, x.shape[2], x.shape[3],
                 x1.shape[-1]).permute(0, 3, 1, 2)
-        #return aligned_x
-        return torch.cat([aligned_x, x_2], dim=1)
+        return aligned_x
+#        return torch.cat([aligned_x, x_2], dim=1)
 
 class NewAltAlignment(nn.Module):
     """Procurstes Alignment module.
@@ -183,14 +188,14 @@ class NewAltAlignment(nn.Module):
             self.size = size//2
         else:
             self.size = rank
-        self.cov = torch.zeros((rank,rank)).cuda()
+        self.cov = torch.zeros((self.rank,self.rank)).cuda()
         self.total = 0
         self.state=0
         self.mode=mode
         self.mom=mom
 
     def reset(self):
-        self.cov = torch.zeros((rank,rank)).cuda()
+        self.cov = torch.zeros((self.rank,self.rank)).cuda()
 
     def forward(self, x):
 
@@ -214,6 +219,8 @@ class NewAltAlignment(nn.Module):
             self.total += x1.shape[0]
 
             if self.mode == "average":
+                print(self.cov.shape, cov.shape) 
+                print(self.rank, self.size)
                 self.cov = cov + self.cov.detach()
                 temp_cov = self.cov
                 temp_total = self.total

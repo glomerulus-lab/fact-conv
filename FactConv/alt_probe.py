@@ -300,9 +300,10 @@ def replace_align(net):
         if isinstance(m1, Alignment): 
             new_module = NewAlignment(m1.rank, m1.rank, args.mode, args.mom)
             setattr(net, n1, new_module)
-            
-#if args.replace_align:
-#    replace_align(net)
+
+def reset_optimizer(net, opt):
+    parameters = net.linear.parameters() if "alt_aligned" not in args.net else net.resnet.linear.parameters()
+    optimizer = optim.SGD(parameters, lr=0.1, momentum=0.9,weight_decay=5e-4)
 
 # Training
 def train(epoch, state=0, num_ensemble_samples=10):
@@ -429,7 +430,7 @@ set_seeds(args.resampling_seed)
 net.cuda()
 #state_switch(net, 0)
 #biason(net)
-resample_infinite(net)
+#resample_infinite(net)
 #factconv(net)
 #print(net)
 
@@ -443,18 +444,21 @@ if "align" in args.net:
     # Vivian Unadapted MiniBatch Alignment Experiment
     print("Unadapted MiniBatch")
     net.load_state_dict(resampled_sd)
+    args.optimization = 0
     test(0,0)
-    recorder['sampled_net'] = logger['accuracy']
+    recorder['unadapted_minibatch'] = logger['accuracy']
 
     # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm
     # Use the pretrained model
     print("Adapted MiniBatch")
     net.load_state_dict(resampled_sd)
     args.bn_statistics = 1
+    args.optimization = 0
+    reset_optimizer(net, optimizer)
     for epoch in range(0, 5):
         train(epoch, 0)
         test(epoch, 0)
-        recorder['adapted_{}'.format(epoch+1)] = logger['accuracy']
+        recorder['adapted_minibatch_{}'.format(epoch+1)] = logger['accuracy']
 
     # Vivian Unadapted TrainSet Alignment Experiment
     # no bn stats collection and/or linear layer adaptation
@@ -466,7 +470,7 @@ if "align" in args.net:
     for epoch in range(0, 5):
         train(epoch, 0)
         test(epoch, 0)
-        recorder['sampled_net'] = logger['accuracy']
+        recorder['unadapted_trainset_{}'.format(epoch+1)] = logger['accuracy']
 
     reset(net)
     
@@ -474,10 +478,12 @@ if "align" in args.net:
     print("Adapted TrainSet")
     net.load_state_dict(resampled_sd)
     args.bn_statistics = 1
+    args.optimizer = 0
+    reset_optimizer(net, optimizer)
     for epoch in range(0, 5):
         train(epoch, 0)
         test(epoch, 0)
-        recorder['adapted_{}'.format(epoch+1)] = logger['accuracy']
+        recorder['adapted_trainset_{}'.format(epoch+1)] = logger['accuracy']
 
     # reference network
 #    test(0, 3)
