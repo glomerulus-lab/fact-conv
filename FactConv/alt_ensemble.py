@@ -126,14 +126,14 @@ def load_model(args, model):
     src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
     #run_name\
     #= "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
-    run_name=\
+    load_name=\
     "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
             args.resample,
               args.width, args.seed, args.num_epochs,
               args.channel_k, args.lr)
-    sd = torch.load(src+run_name+"/model.pt")
+    sd = torch.load(src+load_name+"/model.pt")
     #for key in sd.keys():
     #    if "resampling_weight" in key:
     #        temp = sd[key.replace("resampling_weight", "weight")]
@@ -156,7 +156,7 @@ parser.add_argument('--double', default=0, type=int, help='seed to use')
 parser.add_argument('--channel_k', default=512, type=int, help='seed to use')
 parser.add_argument('--optimize', default=1, type=int, help='seed to use')
 parser.add_argument('--statistics', default=1, type=int, help='seed to use')
-parser.add_argument('--resample', default=0, type=int, help='seed to use')
+parser.add_argument('--resample', default=1, type=int, help='seed to use')
 parser.add_argument('--batchsize', default=256, type=int, help='seed to use')
 parser.add_argument('--rank', default=200, type=int, help='seed to use')
 parser.add_argument('--bias', default=0, type=int, help='seed to use')
@@ -290,7 +290,7 @@ optimizer = optim.SGD(parameters, lr=0.1, momentum=0.9,
 #        lr=0.0001,)
 #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
 #        T_max=args.num_epochs)
-args.resample=0
+#args.resample=0
 logger = {}
 
 def replace_align(net):                                            
@@ -306,7 +306,7 @@ def reset_optimizer(net, opt):
     optimizer = optim.SGD(parameters, lr=0.1, momentum=0.9,weight_decay=5e-4)
 
 # Training
-def train(epoch, state=0, num_ensemble_samples=10):
+def train(epoch, net, state=0, num_ensemble_samples=10):
     print('\nEpoch: %d' % epoch)
 
     if args.bn_statistics:
@@ -331,6 +331,7 @@ def train(epoch, state=0, num_ensemble_samples=10):
     train_loss = 0
     correct = 0
     total = 0
+    outputs = None
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         if args.double:
@@ -348,9 +349,9 @@ def train(epoch, state=0, num_ensemble_samples=10):
             for i in range(0, num_ensemble_samples):
                 resample(net)
                 if outputs is None:
-                    outputs = net(inputs)[:inputs.shape[0]]/num_ensemble_samples
+                    outputs = net(inputs)/num_ensemble_samples
                 else:
-                    outputs += net(inputs)[:inputs.shape[0]]/num_ensemble_samples
+                    outputs += net(inputs)/num_ensemble_samples
         else: 
             outputs = net(inputs)[inputs.shape[0]:]
  
@@ -370,7 +371,7 @@ def train(epoch, state=0, num_ensemble_samples=10):
     logger["train_accuracy"] = 100.*correct/total
 
 
-def test(epoch, loader, state=1, num_ensemble_samples=10):
+def test(epoch, save_dir, state=1, num_ensemble_samples=10):
     global best_acc
     net.eval()
     state_dict = net.state_dict()
@@ -378,7 +379,7 @@ def test(epoch, loader, state=1, num_ensemble_samples=10):
     correct = 0
     total = 0
     with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(loader):
+        for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             if args.double:
                 inputs = inputs.double()
@@ -390,11 +391,15 @@ def test(epoch, loader, state=1, num_ensemble_samples=10):
                 outputs = net(inputs)[:inputs.shape[0]]
             elif state==2:
                 for i in range(0, num_ensemble_samples):
-                    resample(net)
+                    load_dir = save_dir + "_ensemble{}".format(i)
+                    sd = torch.load(load_dir+"/model.pt")
+                    net.load_state_dict(sd)
+                    load_dir = save_dir
+                    #resample(net)
                     if outputs is None:
-                        outputs = net(inputs)[:inputs.shape[0]]/num_ensemble_samples
+                        outputs = net(inputs)/num_ensemble_samples
                     else:
-                        outputs += net(inputs)[:inputs.shape[0]]/num_ensemble_samples
+                        outputs += net(inputs)/num_ensemble_samples
             elif state == 0:
                 outputs = net(inputs)
             else: 
@@ -406,7 +411,7 @@ def test(epoch, loader, state=1, num_ensemble_samples=10):
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            progress_bar(batch_idx, len(loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+            progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
     # Save checkpoint.
@@ -441,29 +446,39 @@ if "align" in args.net:
     resample(net)
     resampled_sd = net.state_dict()
 
-    # Vivian Unadapted MiniBatch Alignment Experiment
-    print("Unadapted MiniBatch")
-    net.load_state_dict(resampled_sd)
-    args.optimization = 0
-    test(epoch=0,state=2, loader=testloader)
-    recorder['unadapted_minibatch_test_ensemble'] = logger['accuracy']
-#    test(epoch=0,state=0, loader=trainloader)
-#    recorder['unadapted_minibatch_train'] = logger['accuracy']
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
+    load_name="{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,args.batchsize, args.rank,args.resample,args.width, args.seed, args.num_epochs,args.channel_k, args.lr)
+    load_dir=src+load_name
+    num_ensemble_samples=5
+    print("Load dir: ", load_dir)
 
-#    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm
+    # Vivian Unadapted MiniBatch Alignment Experiment
+#    print("Unadapted MiniBatch")
+#    net.load_state_dict(resampled_sd)
+#    args.optimization = 0
+##J    test(0,save_dir=load_dir,state=2)
+ #   recorder['unadapted_minibatch_ensemble'] = logger['accuracy']
+ #   num_ensemble_samples=5
+ #   print("Done Ensembled")
+
+    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm
 #    print("Adapted MiniBatch BatchNorm")
 #    net.load_state_dict(resampled_sd)
 #    args.bn_statistics = 1
 #    args.optimization = 0
 #    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch=epoch, state=0, loader=testloader)
-#        recorder['adapted_minibatch_bn_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch=epoch, state=0, loader=trainloader)
-##        recorder['adapted_minibatch_bn_train_{}'.format(epoch+1)] = logger['accuracy']
-#
-#
+#    for sample in range(0, num_ensemble_samples):
+#        resample(net)
+#        save_dir = load_dir + "_ensemble{}".format(sample)
+#        os.makedirs(save_dir, exist_ok=True)
+#        for epoch in range(0, 5):
+#            train(epoch, net, state=0)
+#        torch.save(net.state_dict(), save_dir + "/model.pt")
+#        print("Saved trained net {}".format(sample))
+#        save_dir = load_dir
+#    test(epoch=0, save_dir=load_dir, num_ensemble_samples=num_ensemble_samples, state=2)
+#    recorder['adapted_minibatch_bn_ensembled_{}'.format(epoch+1)] = logger['accuracy']
+#    print("Done Ensembled")
 #
 #    # Vivian Adapted MiniBatch Alignment Experiment With Linear Layer
 #    print("Adapted MiniBatch Linear Layer")
@@ -471,12 +486,18 @@ if "align" in args.net:
 #    args.bn_statistics = 0
 #    args.optimization = 1
 #    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_minibatch_ll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_minibatch_ll_train_{}'.format(epoch+1)] = logger['accuracy']
+#    for sample in range(0, num_ensemble_samples):
+#        resample(net)
+#        save_dir = load_dir + "_ensemble{}".format(sample)
+#        os.makedirs(save_dir, exist_ok=True)
+#        for epoch in range(0, 5):
+#            train(epoch, net, state=0)
+#        torch.save(net.state_dict(), save_dir + "/model.pt")
+#        print("Saved trained net {}".format(sample))
+#        save_dir = load_dir
+#    test(epoch=0, save_dir=load_dir, num_ensemble_samples=num_ensemble_samples, state=2)
+#    recorder['adapted_minibatch_ll_ensembled_{}'.format(epoch+1)] = logger['accuracy']
+#    print("Done Ensembled")
 #
 #    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm + Linear
 #    print("Adapted MiniBatch BatchNorm + Linear Layer")
@@ -484,97 +505,98 @@ if "align" in args.net:
 #    args.bn_statistics = 1
 #    args.optimization = 1
 #    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_minibatch_bnll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_minibatch_bnll_train_{}'.format(epoch+1)] = logger['accuracy']
-#
-    # Vivian Unadapted TrainSet Alignment Experiment
-    # no bn stats collection and/or linear layer adaptation
+#    for sample in range(0, num_ensemble_samples):
+#        resample(net)
+#        save_dir = load_dir + "_ensemble{}".format(sample)
+#        for epoch in range(0, 5):
+#            train(epoch, net, state=0)
+#        torch.save(net.state_dict(), save_dir + "/model.pt")
+#        print("Saved trained net {}".format(sample))
+#        save_dir = load_dir
+#    test(epoch=0, save_dir=load_dir, num_ensemble_samples=num_ensemble_samples, state=2)
+#    recorder['adapted_minibatch_bnll_ensembled_{}'.format(epoch+1)] = logger['accuracy']
+#    print("Done Ensembled")
+
+#    print("Unsure what to do, stopping here")
+   # Vivian Unadapted TrainSet Alignment Experiment
+   # no bn stats collection and/or linear layer adaptation
     print("Unadapted TrainSet")
-    net.load_state_dict(resampled_sd)
+    net.load_state_dict(resampled_sd, strict=False)
     replace_align(net)
     args.bn_statistics = 0
     args.optimization = 0
-    for epoch in range(0, 5):
-        train(epoch, 0)
-        test(epoch, state=0, loader=testloader)
-        recorder['unadapted_trainset_test_{}'.format(epoch+1)] = logger['accuracy']
-#        test(epoch, state=0, loader=trainloader)
-#        recorder['unadapted_trainset_train_{}'.format(epoch+1)] = logger['accuracy']
+    num_ensemble_samples=5
+    for sample in range(0, num_ensemble_samples):
+        resample(net)
+        save_dir = load_dir + "_ensemble{}".format(sample)
+        for epoch in range(0, 5):
+            train(epoch, net, state=0)
+        torch.save(net.state_dict(), save_dir + "/model.pt")
+        print("Saved trained net {}".format(sample))
+        save_dir = load_dir
+    test(epoch=0, save_dir=load_dir, num_ensemble_samples=num_ensemble_samples, state=2)
+    recorder['unadapted_trainset_ensembled_{}'.format(epoch+1)] = logger['accuracy']
+    print("Done Ensembled")
 
     reset(net)
-    
+
     # Vivian Adapted TrainSet Alignment Experiment With BatchNorm
-#    print("Adapted TrainSet BatchNorm")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 1
-#    args.optimizer = 0
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_trainset_bn_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_trainset_bn_train_{}'.format(epoch+1)] = logger['accuracy']
-#
-#    # Vivian Adapted TrainSet Alignment Experiment With Linear Layer
-#    print("Adapted TrainSet Linear Layer")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 0
-#    args.optimizer = 1
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_trainset_ll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_trainset_ll_train_{}'.format(epoch+1)] = logger['accuracy']
-#
-#    # Vivian Adapted TrainSet Alignment Experiment With BatchNorm
-#    print("Adapted TrainSet BatchNorm + Linear Layer")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 1
-#    args.optimizer = 1
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_trainset_bnll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_trainset_bnll_train_{}'.format(epoch+1)] = logger['accuracy']
+    print("Adapted TrainSet BatchNorm")
+    net.load_state_dict(resampled_sd, strict=False)
+    args.bn_statistics = 1
+    args.optimizer = 0
+    reset_optimizer(net, optimizer)
+    for sample in range(0, num_ensemble_samples):
+        resample(net)
+        save_dir = load_dir + "_ensemble{}".format(sample)
+        os.makedirs(save_dir, exist_ok=True)
+        for epoch in range(0, 5):
+            train(epoch, net, state=0)
+        torch.save(net.state_dict(), save_dir + "/model.pt")
+        print("Saved trained net {}".format(sample))
+        save_dir = load_dir
+    test(epoch=0, save_dir=load_dir, num_ensemble_samples=num_ensemble_samples, state=2)
+    recorder['adapted_trainset_bn_ensembled_{}'.format(epoch+1)] = logger['accuracy']
+    print("Done Ensembled")
 
-    # reference network
-#    test(0, 3)
-#    recorder['reference_net'] = logger['accuracy']
-    #
-    #test(0, 2, 10)
-    #recorder['ensemble_10'] = logger['accuracy']
+    # Vivian Adapted TrainSet Alignment Experiment With Linear Layer
+    print("Adapted TrainSet Linear Layer")
+    net.load_state_dict(resampled_sd, strict=False)
+    args.bn_statistics = 0
+    args.optimizer = 1
+    reset_optimizer(net, optimizer)
+    for sample in range(0, num_ensemble_samples):
+        resample(net)
+        save_dir = load_dir + "_ensemble{}".format(sample)
+        os.makedirs(save_dir, exist_ok=True)
+        for epoch in range(0, 5):
+            train(epoch, net, state=0)
+        torch.save(net.state_dict(), save_dir + "/model.pt")
+        print("Saved trained net {}".format(sample))
+        save_dir = load_dir
+    test(epoch=0, save_dir=load_dir, num_ensemble_samples=num_ensemble_samples, state=2)
+    recorder['adapted_trainset_ll_ensembled_{}'.format(epoch+1)] = logger['accuracy']
+    print("Done Ensembled")
 
-    # Run the Momentum-based collecting
-#    resample(net)
-#    if args.statistics:
-#        realign(net, mode='momentum', mom=1.0)
-    #print(net)
-#    for epoch in range(0, 5):
-#        train(epoch, 1)
-#        test(epoch, 1)
-#        recorder['adapted_mom_{}'.format(epoch+1)] = logger['accuracy']
+    # Vivian Adapted TrainSet Alignment Experiment With BatchNorm
+    print("Adapted TrainSet BatchNorm + Linear Layer")
+    net.load_state_dict(resampled_sd, strict=False)
+    args.bn_statistics = 1
+    args.optimizer = 1
+    reset_optimizer(net, optimizer)
+    for sample in range(0, num_ensemble_samples):
+        resample(net)
+        save_dir = load_dir + "_ensemble{}".format(sample)
+        os.makedirs(save_dir, exist_ok=True)
+        for epoch in range(0, 5):
+            train(epoch, net, state=0)
+        torch.save(net.state_dict(), save_dir + "/model.pt")
+        print("Saved trained net {}".format(sample))
+        save_dir = load_dir
+    test(epoch=0, save_dir=load_dir, num_ensemble_samples=num_ensemble_samples, state=2)
+    recorder['adapted_trainset_bnll_ensembled_{}'.format(epoch+1)] = logger['accuracy']
+    print("Done Ensembled")
 
-    # Reset the NewAltAlignment covariance to 0
-#    sd = load_model(args, net)
-#    net.load_state_dict(sd)
-#    reset(net)
-
-    # Run the Average-based collecting
-#    if args.statistics:
-#        realign(net, mode='average')
-#    for epoch in range(0, 5):
-#        train(epoch, 1)
-#        test(epoch, 1)
-#        recorder['adapted_avg_{}'.format(epoch+1)] = logger['accuracy']
 else:
     # just evaluate standard conv or SRF networks
     test(0, 0)
