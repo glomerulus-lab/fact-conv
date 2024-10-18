@@ -1,6 +1,8 @@
 from .resnet import ResNet18, ResNet9
-from .switched_resnet import SwitchedResNet18, SwitchedResNet9
-from .aligned_resnet import AlignedResNet18, AlignedResNet9
+from .switched_resnet import SwitchedResNet18, SwitchedResNet9,\
+SwitchedResNet34, SwitchedResNet50
+from .aligned_resnet import AlignedResNet19, AlignedResNet9, AlignedResNet34,\
+AlignedResNet50
 from .pre_bn_resnet import PostBNResNet18, PostBNResNet9
 from .function_utils import replace_layers_factconv2d,replace_layers_factprojconv2d,\
 replace_layers_diagfactconv2d, replace_layers_diagchanfactconv2d,\
@@ -23,10 +25,18 @@ def define_models(args):
         model = SwitchedResNet18()
     if 'pre_bn_resnet9' in args.net:
         model = SwitchedResNet9()
+    if 'pre_bn_resnet34' in args.net:
+        model = SwitchedResNet34()
+    if 'pre_bn_resnet50' in args.net:
+        model = SwitchedResNet50()
     if 'pre_bn_aligned_resnet18' in args.net:
         model = AlignedResNet18()
     if 'pre_bn_aligned_resnet9' in args.net:
         model = AlignedResNet9()
+    if 'pre_bn_aligned_resnet34' in args.net:
+        model = AlignedResNet34()
+    if 'pre_bn_aligned_resnet50' in args.net:
+        model = AlignedResNet50()
     if 'post_bn_aligned_resnet18' in args.net:
         model = PostBNResNet18()
     if 'post_bn_aligned_resnet9' in args.net:
@@ -39,13 +49,12 @@ def define_models(args):
     if args.gmm >= 1:
         replace_layers_gmm(model, args.gmm)
 
+    if 'fact' in args.net:
+       replace_layers_factconv2d(model)
     if 'lowrank' in args.net:        
         replace_layers_lowrank(model, args.channel_k)
     if 'lrdiag' in args.net:        
         replace_layers_lrdiag(model, args.channel_k)
-
-    if 'fact' in args.net:
-       replace_layers_factconv2d(model)
 
     if 'eigh' in args.net:
        replace_layers_eighconv2d(model)
