@@ -127,7 +127,7 @@ def load_model(args, model):
     #run_name\
     #= "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
     run_name=\
-    "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
+    "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
             args.resample,
@@ -272,7 +272,7 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", entity="whitev4", config=args,
-        group="final_loading_probing_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="trainset_final_loading_probing_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 sd = load_model(args, net)
 net.load_state_dict(sd)
@@ -445,10 +445,10 @@ if "align" in args.net:
     print("Unadapted MiniBatch")
     net.load_state_dict(resampled_sd)
     args.optimization = 0
-    test(epoch=0,state=2, loader=testloader)
-    recorder['unadapted_minibatch_test_ensemble'] = logger['accuracy']
-#    test(epoch=0,state=0, loader=trainloader)
-#    recorder['unadapted_minibatch_train'] = logger['accuracy']
+#    test(epoch=0,state=2, loader=testloader)
+#    recorder['unadapted_minibatch_test_ensemble'] = logger['accuracy']
+    test(epoch=0,state=0, loader=testloader)
+    recorder['unadapted_minibatch_test'] = logger['accuracy']
 
 #    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm
 #    print("Adapted MiniBatch BatchNorm")

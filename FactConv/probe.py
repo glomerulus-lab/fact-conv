@@ -242,7 +242,7 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", entity="whitev4", config=args,
-        group="final_loading_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="seeds_final_loading_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 sd = load_model(args, net)
 net.load_state_dict(sd)
@@ -348,11 +348,12 @@ test(0)
 recorder['epoch_0'] = logger['accuracy']
 if args.statistics:
     realign(net)
+test(0, 2, 10)
+recorder['ensemble_10'] = logger['accuracy']
 for epoch in range(0, 5):
     train(epoch)
     test(epoch)
     recorder['epoch_{}'.format(epoch+1)] = logger['accuracy']
-    recorder['epoch_train_{}'.format(epoch+1)] = logger['train_accuracy']
     #if epoch == 5:
     #    factconv(net)
     #    net.cuda()
