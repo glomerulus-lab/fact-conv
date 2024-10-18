@@ -21,29 +21,34 @@ def resample(model):
         if isinstance(m1, nn.Conv2d):# ResamplingDoubleFactConv2d):
             m1.resample()
 
-def save_model(args, model):
-    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_rainbow_cifar/"
-    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
-    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/retry_recent_new_rainbow_cifar/"
-    src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
-    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
-    #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/gmm_rainbow_cifar/"
+def save_model(args, model, scheduler, optimizer, epoch):
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/sci4dl/"
     run_name\
     = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
             args.batchsize, args.rank,
             args.resample, args.width, args.seed, args.num_epochs,
             args.channel_k, args.lr)
-    model_dir =  src + run_name
+    model_dir =  src + run_name + "/epoch{}".format(epoch)
+    args.last_epoch = epoch
     os.makedirs(model_dir, exist_ok=True)
-    
-    torch.save(model.state_dict(), model_dir+ "/model.pt")
-    torch.save(args, model_dir+ "/args.pt")
+
+    path = model_dir + "/model.pt"
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict(),
+        'args': args
+        }, path)
+    #torch.save(model.state_dict(), model_dir + "/model.pt")
+    #torch.save(args, model_dir + "/args.pt")
 
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--resume', '-r', action='store_true',
                     help='resume from checkpoint')
+parser.add_argument('--last_epoch', type=int, default=0,help='which epoch to resume')
 parser.add_argument('--net', type=str, default='resnet18', help="which model to use")
 parser.add_argument('--num_epochs', type=int, default=200, help='number of trainepochs')
 parser.add_argument('--name', type=str, default='ResNet', 
@@ -118,7 +123,7 @@ wandb_dir = "/home/mila/v/vivian.white/scratch/wandb/"
 os.makedirs(wandb_dir, exist_ok=True)
 
 run = wandb.init(project="FactConv", entity="whitev4", config=args,
-        group="testing_saving_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="sci4dl_testing_saving_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 
 
@@ -127,6 +132,28 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
         T_max=args.num_epochs)
+
+
+# adding checkpointing
+remaining_epochs = args.num_epochs
+if args.resume:
+    # Load checkpoint.
+    print('==> Resuming epoch {} from checkpoint..'.format(args.last_epoch))
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/sci4dl/"
+    model_name\
+    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(
+            args.net, args.batchsize, args.rank, args.resample, args.width, args.seed, 
+            args.num_epochs, args.channel_k, args.lr)
+    checkpoint_dir =  src + model_name + "/epoch{}".format(args.last_epoch)
+    assert os.path.isdir(checkpoint_dir), 'Error: no checkpoint directory found!'
+    model_dir = checkpoint_dir + "/model.pt"
+    checkpoint = torch.load(model_dir)
+    net.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    args.last_epoch = checkpoint['epoch']
+    start_epoch = args.last_epoch + 1
+    remaining_epochs = args.num_epochs - start_epoch
 
 logger = {}
 # Training
@@ -214,21 +241,23 @@ def test(epoch):
     logger['top1_test'] = top1.avg
     logger['top2_test'] = top2.avg
     logger['top3_test'] = top3.avg
-    if acc > best_acc:
-        print('Saving..')
-        state = {
-            'net': net.state_dict(),
-            'acc': acc,
-            'epoch': epoch,
-        }
-        save_model(args, net)
-        best_acc = acc
+    # if acc > best_acc:
+    #     print('Saving..')
+    #     state = {
+    #         'net': net.state_dict(),
+    #         'acc': acc,
+    #         'epoch': epoch,
+    #     }
+    print("Saving epoch {}".format(epoch))
+    save_model(args, net, scheduler, optimizer, epoch)
+    # best_acc = acc
 
 
-for epoch in range(start_epoch, start_epoch+args.num_epochs):
+#for epoch in range(start_epoch, start_epoch+args.num_epochs):
+for epoch in range(start_epoch, start_epoch+remaining_epochs):
     train(epoch)
     test(epoch)
     run.log(logger)#
     scheduler.step()
 args.name += "final"
-save_model(args, net)
+save_model(args, net, scheduler, optimizer, epoch)
