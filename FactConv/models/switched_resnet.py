@@ -113,12 +113,13 @@ def SwitchedResNet9():
 
 
 
-def ResNet34():
+def SwitchedResNet34():
     return ResNet(BasicBlock, [3, 4, 6, 3])
 
 
-def ResNet50():
-    return ResNet(Bottleneck, [3, 4, 6, 3])
+def SwitchedResNet50():
+    # return ResNet(Bottleneck, [3, 4, 6, 3])
+    return ResNet(BasicBlock, [3, 4, 14, 3])
 
 
 def ResNet101():
