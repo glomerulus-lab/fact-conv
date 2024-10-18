@@ -108,6 +108,8 @@ class NewAlignment(nn.Module):
         self.total = 0
         self.mode=mode
         self.mom=mom
+        alignment=torch.zeros((rank,rank)).cuda()
+        self.register_buffer("alignment", alignment, persistent=True)
 
     def reset(self):
         self.cov = torch.zeros((self.rank,self.rank)).cuda()
