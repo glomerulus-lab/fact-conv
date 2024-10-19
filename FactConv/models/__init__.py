@@ -1,7 +1,7 @@
 from .resnet import ResNet18, ResNet9
 from .switched_resnet import SwitchedResNet18, SwitchedResNet9,\
 SwitchedResNet34, SwitchedResNet50
-from .aligned_resnet import AlignedResNet19, AlignedResNet9, AlignedResNet34,\
+from .aligned_resnet import AlignedResNet18, AlignedResNet9, AlignedResNet34,\
 AlignedResNet50
 from .pre_bn_resnet import PostBNResNet18, PostBNResNet9
 from .function_utils import replace_layers_factconv2d,replace_layers_factprojconv2d,\

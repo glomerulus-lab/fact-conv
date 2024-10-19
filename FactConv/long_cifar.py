@@ -28,21 +28,21 @@ def save_model(args, model, scheduler, optimizer, epoch):
             args.batchsize, args.rank,
             args.resample, args.width, args.seed, args.num_epochs,
             args.channel_k, args.lr)
-    model_dir =  src + run_name + "/epoch{}".format(epoch)
-    args.last_epoch = epoch
+    model_dir =  src + run_name
     os.makedirs(model_dir, exist_ok=True)
 
     path = model_dir + "/model.pt"
-    torch.save({
+    save_dict = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
         'args': args
-        }, path)
-    #torch.save(model.state_dict(), model_dir + "/model.pt")
-    #torch.save(args, model_dir + "/args.pt")
-
+        }
+    torch.save(save_dict, path)
+    if os.path.lexists(path+".checkpoint"):     
+        os.unlink(path+".checkpoint")           
+    os.symlink(path, path+".checkpoint")    
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
@@ -138,22 +138,25 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,
 remaining_epochs = args.num_epochs
 if args.resume:
     # Load checkpoint.
-    print('==> Resuming epoch {} from checkpoint..'.format(args.last_epoch))
     src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/sci4dl/"
     model_name\
-    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(
-            args.net, args.batchsize, args.rank, args.resample, args.width, args.seed, 
-            args.num_epochs, args.channel_k, args.lr)
-    checkpoint_dir =  src + model_name + "/epoch{}".format(args.last_epoch)
-    assert os.path.isdir(checkpoint_dir), 'Error: no checkpoint directory found!'
-    model_dir = checkpoint_dir + "/model.pt"
-    checkpoint = torch.load(model_dir)
-    net.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-    args.last_epoch = checkpoint['epoch']
-    start_epoch = args.last_epoch + 1
-    remaining_epochs = args.num_epochs - start_epoch
+    = "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
+            args.batchsize, args.rank,
+            args.resample, args.width, args.seed, args.num_epochs,
+            args.channel_k, args.lr)
+    model_dir =  src + model_name
+    path = model_dir + "/model.pt.checkpoint"
+    if not os.path.isfile(path):
+        print('Error: no checkpoint found! we are running training')
+    else:
+        model_dir = path
+        checkpoint = torch.load(model_dir)
+        net.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        print('==> Resuming epoch {} from checkpoint..'.format( checkpoint['epoch']))
+        remaining_epochs = args.num_epochs - start_epoch
 
 logger = {}
 # Training
