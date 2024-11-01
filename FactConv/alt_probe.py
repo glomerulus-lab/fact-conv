@@ -124,6 +124,7 @@ def load_model(args, model):
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
     src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/sci4dl/"
     #run_name\
     #= "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
     run_name=\
@@ -133,7 +134,7 @@ def load_model(args, model):
             args.resample,
               args.width, args.seed, args.num_epochs,
               args.channel_k, args.lr)
-    sd = torch.load(src+run_name+"/model.pt")
+    sd = torch.load(src+run_name+"/model.pt")['model_state_dict']
     #for key in sd.keys():
     #    if "resampling_weight" in key:
     #        temp = sd[key.replace("resampling_weight", "weight")]
@@ -272,7 +273,7 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", entity="whitev4", config=args,
-        group="trainset_final_loading_probing_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="sci4dl_final_loading_probing_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 sd = load_model(args, net)
 net.load_state_dict(sd)
@@ -441,56 +442,57 @@ if "align" in args.net:
     resample(net)
     resampled_sd = net.state_dict()
 
+
     # Vivian Unadapted MiniBatch Alignment Experiment
     print("Unadapted MiniBatch")
     net.load_state_dict(resampled_sd)
     args.optimization = 0
-#    test(epoch=0,state=2, loader=testloader)
-#    recorder['unadapted_minibatch_test_ensemble'] = logger['accuracy']
+    test(epoch=0,state=2, loader=testloader)
+    recorder['unadapted_minibatch_test_ensemble'] = logger['accuracy']
     test(epoch=0,state=0, loader=testloader)
     recorder['unadapted_minibatch_test'] = logger['accuracy']
 
 #    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm
-#    print("Adapted MiniBatch BatchNorm")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 1
-#    args.optimization = 0
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch=epoch, state=0, loader=testloader)
-#        recorder['adapted_minibatch_bn_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch=epoch, state=0, loader=trainloader)
-##        recorder['adapted_minibatch_bn_train_{}'.format(epoch+1)] = logger['accuracy']
-#
-#
-#
-#    # Vivian Adapted MiniBatch Alignment Experiment With Linear Layer
-#    print("Adapted MiniBatch Linear Layer")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 0
-#    args.optimization = 1
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_minibatch_ll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
+    print("Adapted MiniBatch BatchNorm")
+    net.load_state_dict(resampled_sd)
+    args.bn_statistics = 1
+    args.optimization = 0
+    reset_optimizer(net, optimizer)
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch=epoch, state=0, loader=testloader)
+        recorder['adapted_minibatch_bn_test_{}'.format(epoch+1)] = logger['accuracy']
+#        test(epoch=epoch, state=0, loader=trainloader)
+#        recorder['adapted_minibatch_bn_train_{}'.format(epoch+1)] = logger['acuracy']
+
+
+
+    # Vivian Adapted MiniBatch Alignment Experiment With Linear Layer
+    print("Adapted MiniBatch Linear Layer")
+    net.load_state_dict(resampled_sd)
+    args.bn_statistics = 0
+    args.optimization = 1
+    reset_optimizer(net, optimizer)
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, state=0, loader=testloader)
+        recorder['adapted_minibatch_ll_test_{}'.format(epoch+1)] = logger['accuracy']
+        test(epoch, state=0, loader=trainloader)
 ##        recorder['adapted_minibatch_ll_train_{}'.format(epoch+1)] = logger['accuracy']
-#
-#    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm + Linear
-#    print("Adapted MiniBatch BatchNorm + Linear Layer")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 1
-#    args.optimization = 1
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_minibatch_bnll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_minibatch_bnll_train_{}'.format(epoch+1)] = logger['accuracy']
-#
+
+    # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm + Linear
+    print("Adapted MiniBatch BatchNorm + Linear Layer")
+    net.load_state_dict(resampled_sd)
+    args.bn_statistics = 1
+    args.optimization = 1
+    reset_optimizer(net, optimizer)
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, state=0, loader=testloader)
+        recorder['adapted_minibatch_bnll_test_{}'.format(epoch+1)] = logger['accuracy']
+        test(epoch, state=0, loader=trainloader)
+        recorder['adapted_minibatch_bnll_train_{}'.format(epoch+1)] = logger['accuracy']
+
     # Vivian Unadapted TrainSet Alignment Experiment
     # no bn stats collection and/or linear layer adaptation
     print("Unadapted TrainSet")
@@ -502,56 +504,56 @@ if "align" in args.net:
         train(epoch, 0)
         test(epoch, state=0, loader=testloader)
         recorder['unadapted_trainset_test_{}'.format(epoch+1)] = logger['accuracy']
-#        test(epoch, state=0, loader=trainloader)
-#        recorder['unadapted_trainset_train_{}'.format(epoch+1)] = logger['accuracy']
+        test(epoch, state=0, loader=trainloader)
+        recorder['unadapted_trainset_train_{}'.format(epoch+1)] = logger['accuracy']
 
     reset(net)
     
     # Vivian Adapted TrainSet Alignment Experiment With BatchNorm
-#    print("Adapted TrainSet BatchNorm")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 1
-#    args.optimizer = 0
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_trainset_bn_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_trainset_bn_train_{}'.format(epoch+1)] = logger['accuracy']
-#
+    print("Adapted TrainSet BatchNorm")
+    net.load_state_dict(resampled_sd)
+    args.bn_statistics = 1
+    args.optimizer = 0
+    reset_optimizer(net, optimizer)
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, state=0, loader=testloader)
+        recorder['adapted_trainset_bn_test_{}'.format(epoch+1)] = logger['accuracy']
+        test(epoch, state=0, loader=trainloader)
+        recorder['adapted_trainset_bn_train_{}'.format(epoch+1)] = logger['accuracy']
+
 #    # Vivian Adapted TrainSet Alignment Experiment With Linear Layer
-#    print("Adapted TrainSet Linear Layer")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 0
-#    args.optimizer = 1
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_trainset_ll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_trainset_ll_train_{}'.format(epoch+1)] = logger['accuracy']
-#
+    print("Adapted TrainSet Linear Layer")
+    net.load_state_dict(resampled_sd)
+    args.bn_statistics = 0
+    args.optimizer = 1
+    reset_optimizer(net, optimizer)
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, state=0, loader=testloader)
+        recorder['adapted_trainset_ll_test_{}'.format(epoch+1)] = logger['accuracy']
+        test(epoch, state=0, loader=trainloader)
+        recorder['adapted_trainset_ll_train_{}'.format(epoch+1)] = logger['accuracy']
+
 #    # Vivian Adapted TrainSet Alignment Experiment With BatchNorm
-#    print("Adapted TrainSet BatchNorm + Linear Layer")
-#    net.load_state_dict(resampled_sd)
-#    args.bn_statistics = 1
-#    args.optimizer = 1
-#    reset_optimizer(net, optimizer)
-#    for epoch in range(0, 5):
-#        train(epoch, 0)
-#        test(epoch, state=0, loader=testloader)
-#        recorder['adapted_trainset_bnll_test_{}'.format(epoch+1)] = logger['accuracy']
-##        test(epoch, state=0, loader=trainloader)
-##        recorder['adapted_trainset_bnll_train_{}'.format(epoch+1)] = logger['accuracy']
+    print("Adapted TrainSet BatchNorm + Linear Layer")
+    net.load_state_dict(resampled_sd)
+    args.bn_statistics = 1
+    args.optimizer = 1
+    reset_optimizer(net, optimizer)
+    for epoch in range(0, 5):
+        train(epoch, 0)
+        test(epoch, state=0, loader=testloader)
+        recorder['adapted_trainset_bnll_test_{}'.format(epoch+1)] = logger['accuracy']
+        test(epoch, state=0, loader=trainloader)
+        recorder['adapted_trainset_bnll_train_{}'.format(epoch+1)] = logger['accuracy']
 
     # reference network
 #    test(0, 3)
 #    recorder['reference_net'] = logger['accuracy']
     #
-    #test(0, 2, 10)
-    #recorder['ensemble_10'] = logger['accuracy']
+    test(epoch=0, state=2, num_ensemble_samples=10, loader=testloader)
+    recorder['ensemble_10'] = logger['accuracy']
 
     # Run the Momentum-based collecting
 #    resample(net)
@@ -577,6 +579,6 @@ if "align" in args.net:
 #        recorder['adapted_avg_{}'.format(epoch+1)] = logger['accuracy']
 else:
     # just evaluate standard conv or SRF networks
-    test(0, 0)
+    test(epoch=0, state=0, loader=testloader)
     recorder['reference_net'] = logger['accuracy']
 run.log(recorder)

@@ -123,17 +123,18 @@ def load_model(args, model):
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/recent_new_rainbow_cifar/"
     #src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/state_switch_rainbow_cifar/"
     src="/home/mila/m/muawiz.chaudhary/scratch/factconvs/saved_models/top3_recent_new_rainbow_cifar/"
-    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
+    #src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/sci4dl/"
     #run_name\
     #= "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
     load_name=\
-    "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,
+    "{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}_lr{}".format(args.net,
             args.batchsize, args.rank,
             #1 if args.width == 0.125 else args.double, args.resample,
             args.resample,
               args.width, args.seed, args.num_epochs,
               args.channel_k, args.lr)
-    sd = torch.load(src+load_name+"/model.pt")
+    sd = torch.load(src+load_name+"/model.pt")['model_state_dict']
     #for key in sd.keys():
     #    if "resampling_weight" in key:
     #        temp = sd[key.replace("resampling_weight", "weight")]
@@ -272,12 +273,12 @@ os.makedirs(wandb_dir, exist_ok=True)
 os.chdir(wandb_dir)
 
 run = wandb.init(project="FactConv", entity="whitev4", config=args,
-        group="final_loading_probing_align_resnet_cifar", name=run_name, dir=wandb_dir)
+        group="sci4dl_final_loading_probing_align_resnet_cifar", name=run_name, dir=wandb_dir)
 #wandb.watch(net, log='all', log_freq=1)
 sd = load_model(args, net)
 net.load_state_dict(sd)
 #print(net)
-
+print("Loaded OG model")
 criterion = nn.CrossEntropyLoss()
 parameters = net.linear.parameters() if "alt_aligned" not in args.net else net.resnet.linear.parameters()
 optimizer = optim.SGD(parameters, lr=0.1, momentum=0.9,
@@ -371,7 +372,7 @@ def train(epoch, net, state=0, num_ensemble_samples=10):
     logger["train_accuracy"] = 100.*correct/total
 
 
-def test(epoch, save_dir, loader, state=1, num_ensemble_samples=10):
+def test(epoch, save_dir, loader, state=1, num_ensemble_samples=5):
     global best_acc
     net.eval()
     state_dict = net.state_dict()
@@ -391,7 +392,7 @@ def test(epoch, save_dir, loader, state=1, num_ensemble_samples=10):
                 outputs = net(inputs)[:inputs.shape[0]]
             elif state==2:
                 for i in range(0, num_ensemble_samples):
-                    load_dir = save_dir + "_ensemble{}".format(i)
+                    load_dir = save_dir + "/ensemble{}".format(i)
                     sd = torch.load(load_dir+"/model.pt")
                     net.load_state_dict(sd)
                     load_dir = save_dir
@@ -446,30 +447,32 @@ if "align" in args.net:
     resample(net)
     resampled_sd = net.state_dict()
 
-    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/rainbow_cifar/"
+    src="/home/mila/v/vivian.white/scratch/factconvs/saved_models/sci4dl/"
     load_name="{}_batchsize_{}_rank_{}_resample_{}_width_{}_seed_{}_epochs_{}_k_{}".format(args.net,args.batchsize, args.rank,args.resample,args.width, args.seed, args.num_epochs,args.channel_k, args.lr)
     load_dir=src+load_name
+#    save_dir = load_dir + "/ensembles/"
+#    os.makedirs(save_dir, exist_ok=True)
     num_ensemble_samples=5
     print("Load dir: ", load_dir)
 
-    # Vivian Unadapted MiniBatch Alignment Experiment
-    print("Unadapted MiniBatch")
-    net.load_state_dict(resampled_sd)
-    args.optimization = 0
-    test(0,save_dir=load_dir,loader=trainloader,state=2)
-    recorder['unadapted_minibatch_ensemble_train'] = logger['accuracy']
-    num_ensemble_samples=5
-    print("Done Ensembled")
+   # Vivian Unadapted MiniBatch Alignment Experiment
+#    print("Unadapted MiniBatch")
+#    net.load_state_dict(resampled_sd, strict=False)
+#    args.optimization = 0
+#    test(0,save_dir=load_dir,loader=testloader,state=2)
+#    recorder['unadapted_minibatch_ensemble_test'] = logger['accuracy']
+#    num_ensemble_samples=5
+#    print("Done Ensembled")
 
     # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm
     print("Adapted MiniBatch BatchNorm")
-    net.load_state_dict(resampled_sd)
+    net.load_state_dict(resampled_sd, strict=False)
     args.bn_statistics = 1
     args.optimization = 0
     reset_optimizer(net, optimizer)
     for sample in range(0, num_ensemble_samples):
         resample(net)
-        save_dir = load_dir + "_ensemble{}".format(sample)
+        save_dir = load_dir + "/ensemble{}".format(sample)
         os.makedirs(save_dir, exist_ok=True)
         for epoch in range(0, 5):
             train(epoch, net, state=0)
@@ -482,13 +485,13 @@ if "align" in args.net:
 
     # Vivian Adapted MiniBatch Alignment Experiment With Linear Layer
     print("Adapted MiniBatch Linear Layer")
-    net.load_state_dict(resampled_sd)
+    net.load_state_dict(resampled_sd, strict=False)
     args.bn_statistics = 0
     args.optimization = 1
     reset_optimizer(net, optimizer)
     for sample in range(0, num_ensemble_samples):
         resample(net)
-        save_dir = load_dir + "_ensemble{}".format(sample)
+        save_dir = load_dir + "/ensemble{}".format(sample)
         os.makedirs(save_dir, exist_ok=True)
         for epoch in range(0, 5):
             train(epoch, net, state=0)
@@ -501,13 +504,13 @@ if "align" in args.net:
 
     # Vivian Adapted MiniBatch Alignment Experiment With BatchNorm + Linear
     print("Adapted MiniBatch BatchNorm + Linear Layer")
-    net.load_state_dict(resampled_sd)
+    net.load_state_dict(resampled_sd, strict=False)
     args.bn_statistics = 1
     args.optimization = 1
     reset_optimizer(net, optimizer)
     for sample in range(0, num_ensemble_samples):
         resample(net)
-        save_dir = load_dir + "_ensemble{}".format(sample)
+        save_dir = load_dir + "/ensemble{}".format(sample)
         for epoch in range(0, 5):
             train(epoch, net, state=0)
         torch.save(net.state_dict(), save_dir + "/model.pt")
@@ -517,7 +520,6 @@ if "align" in args.net:
     recorder['adapted_minibatch_bnll_ensembled_{}_train'.format(epoch+1)] = logger['accuracy']
     print("Done Ensembled")
 
-#    print("Unsure what to do, stopping here")
    # Vivian Unadapted TrainSet Alignment Experiment
    # no bn stats collection and/or linear layer adaptation
     print("Unadapted TrainSet")
@@ -528,14 +530,15 @@ if "align" in args.net:
     num_ensemble_samples=5
     for sample in range(0, num_ensemble_samples):
         resample(net)
-        save_dir = load_dir + "_ensemble{}".format(sample)
+        save_dir = load_dir + "/ensemble{}".format(sample)
+        os.makedirs(save_dir, exist_ok=True)
         for epoch in range(0, 5):
             train(epoch, net, state=0)
         torch.save(net.state_dict(), save_dir + "/model.pt")
         print("Saved trained net {}".format(sample))
         save_dir = load_dir
-    test(epoch=0, save_dir=load_dir, loader=trainloader, num_ensemble_samples=num_ensemble_samples, state=2)
-    recorder['unadapted_trainset_ensembled_{}_train'.format(epoch+1)] = logger['accuracy']
+    test(epoch=0, save_dir=load_dir, loader=testloader, num_ensemble_samples=num_ensemble_samples, state=2)
+    recorder['unadapted_trainset_ensembled_{}_test'.format(epoch+1)] = logger['accuracy']
     print("Done Ensembled")
 
     reset(net)
@@ -548,7 +551,7 @@ if "align" in args.net:
     reset_optimizer(net, optimizer)
     for sample in range(0, num_ensemble_samples):
         resample(net)
-        save_dir = load_dir + "_ensemble{}".format(sample)
+        save_dir = load_dir + "/ensemble{}".format(sample)
         os.makedirs(save_dir, exist_ok=True)
         for epoch in range(0, 5):
             train(epoch, net, state=0)
@@ -567,7 +570,7 @@ if "align" in args.net:
     reset_optimizer(net, optimizer)
     for sample in range(0, num_ensemble_samples):
         resample(net)
-        save_dir = load_dir + "_ensemble{}".format(sample)
+        save_dir = load_dir + "/ensemble{}".format(sample)
         os.makedirs(save_dir, exist_ok=True)
         for epoch in range(0, 5):
             train(epoch, net, state=0)
@@ -587,7 +590,7 @@ if "align" in args.net:
     reset_optimizer(net, optimizer)
     for sample in range(0, num_ensemble_samples):
         resample(net)
-        save_dir = load_dir + "_ensemble{}".format(sample)
+        save_dir = load_dir + "/ensemble{}".format(sample)
         os.makedirs(save_dir, exist_ok=True)
         for epoch in range(0, 5):
             train(epoch, net, state=0)
