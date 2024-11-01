@@ -263,4 +263,4 @@ for epoch in range(start_epoch, start_epoch+remaining_epochs):
     run.log(logger)#
     scheduler.step()
 args.name += "final"
-save_model(args, net, scheduler, optimizer, epoch)
+save_model(args, net, scheduler, optimizer, start_epoch+remaining_epochs)
