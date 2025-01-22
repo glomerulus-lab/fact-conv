@@ -35,12 +35,17 @@ torch.backends.cudnn.allow_tf32 = True
 
 from distutils.util import strtobool
 
-from imagenet_setup import replace_layers, replace_layers_agnostic
+#from imagenet_setup import replace_layers, replace_layers_agnostic
+from function_utils import replace_layers_factconv2d, replace_layers_scale
+from resnet import ResNet18
+from switched_resnet import SwitchedResNet18
+from aligned_resnet import AlignedResNet18
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(models.__dict__[name]))
-
+model_names.append('switched_resnet18')
+model_names.append('aligned_resnet18')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR', nargs='?', default='imagenet',
@@ -105,7 +110,7 @@ parser.add_argument('--width_scale', default=1, type=float,
 best_acc1 = 0
 
 #directory to load intiial models from
-load_dir = "/network/scratch/v/vivian.white/v1-models/saved-models/imagenet" 
+#load_dir = "/network/scratch/v/vivian.white/v1-models/saved-models/imagenet" 
 def main():
     args = parser.parse_args()
 
@@ -174,27 +179,35 @@ def main_worker(gpu, ngpus_per_node, args):
         model = models.__dict__[args.arch]()
         
         if args.arch == "resnet18":
-            print(load_dir) 
-            print("{}/conv_resnet_width_{}_init.pt".format(load_dir,int(args.width_scale)))
-            initial\
-            = torch.load("{}/conv_resnet_width_{}_init.pt".format(load_dir,
-                int(args.width_scale)))
+            # print(load_dir) 
+            # print("{}/conv_resnet_width_{}_init.pt".format(load_dir,int(args.width_scale)))
+            # initial\
+            # = torch.load("{}/conv_resnet_width_{}_init.pt".format(load_dir,
+            #     int(args.width_scale)))
 
-            replace_layers_agnostic(model, args.width_scale)
+            # replace_layers_agnostic(model, args.width_scale)
 
-            model.load_state_dict(initial)
-            print("loaded resnet at width {}".format(args.width_scale))
-            print("loaded resnet at width {}".format(args.width_scale))
+            # model.load_state_dict(initial)
+            # print("loaded resnet at width {}".format(args.width_scale))
+            # print("loaded resnet at width {}".format(args.width_scale))
+            model = ResNet18()
+            #model = models.resnet18(pretrained=False)
+            print("Created ResNet18()")
+            print(model)
+        elif args.arch == "switched_resnet18":
+            model = SwitchedResNet18()
+        elif args.arch == "aligned_resnet18":
+            model = AlignedResNet18()
 
-        elif args.arch == "alexnet":
-            initial = torch.load("{}/conv_alexnet_init.pt".format(load_dir))
-            # load presaved init
-            model.load_state_dict(initial)
-            print("loaded alexnet")
+        # elif args.arch == "alexnet":
+        #     initial = torch.load("{}/conv_alexnet_init.pt".format(load_dir))
+        #     # load presaved init
+        #     model.load_state_dict(initial)
+        #     print("loaded alexnet")
 
     if args.fact:
         print("Making fact")
-        replace_layers(model)
+        replace_layers_factconv2d(model)
         print("Built Fact Model")
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
@@ -253,7 +266,8 @@ def main_worker(gpu, ngpus_per_node, args):
     
     # optionally resume from a checkpoint
     if True:
-        path  = os.path.join("/network/scratch/v/vivian.white/v1-models/saved-models/imagenet/mila_fact_resnet_width_{}/latest.pth.tar".format(int(args.width_scale)))
+        path\
+        = os.path.join("/network/scratch/v/vivian.white/v1-models/saved-models/imagenet2/{}/latest.pth.tar".format(args.name))
         print(path)
         if os.path.isfile(path):
             print("=> loading checkpoint '{}'".format(path))
@@ -473,13 +487,14 @@ def validate(val_loader, model, criterion, args):
 
 def save_checkpoint(state, epoch, args):
     save_dir\
-    = '/network/scratch/v/vivian.white/v1-models/saved-models/imagenet/mila_{}'.format(args.name)
+    = '/network/scratch/v/vivian.white/v1-models/saved-models/imagenet2/mila_{}'.format(args.name)
     os.makedirs(save_dir, exist_ok=True)
 
     filename = '{}/checkpoint_{}.pth.tar'.format(save_dir, epoch)
     torch.save(state, filename)
 
-    path  = os.path.join("/network/scratch/v/vivian.white/v1-models/saved-models/imagenet/mila_fact_resnet_width_{}/latest.pth.tar".format(int(args.width_scale)))
+    path\
+    = os.path.join("/network/scratch/v/vivian.white/v1-models/saved-models/imagenet2/{}/latest.pth.tar".format(args.name))
     print(path)
     if os.path.lexists(path+".tmp"):
         os.unlink(path+".tmp")
