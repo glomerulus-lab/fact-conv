@@ -5,10 +5,11 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from align import Alignment
+from conv_modules import ResamplingDoubleFactConv2d
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
     """3x3 convolution with padding"""
-    return nn.Conv2d(
+    return ResamplingDoubleFactConv2d(
         in_planes,
         out_planes,
         kernel_size=3,
@@ -22,7 +23,7 @@ def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, d
 
 def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
     """1x1 convolution"""
-    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
+    return ResamplingDoubleFactConv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
 class BasicBlock(nn.Module):
@@ -47,6 +48,7 @@ class BasicBlock(nn.Module):
         if dilation > 1:
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
+        self.align1 = Alignment(inplanes, inplanes)
         self.bn1 = norm_layer(inplanes)
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn2 = norm_layer(planes)
@@ -58,7 +60,8 @@ class BasicBlock(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
-
+        
+        out = self.align1(x)
         out = self.bn1(x)
         out = self.conv1(x)
         out = self.relu(out)
@@ -150,6 +153,7 @@ class ResNet(nn.Module):
         #_log_api_usage_once(self)
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
+            norm_layer.track_running_stats=True
         self._norm_layer = norm_layer
 
         self.inplanes = 64
@@ -165,7 +169,7 @@ class ResNet(nn.Module):
             )
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = ResamplingDoubleFactConv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         # self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -173,6 +177,7 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+        self.align = Alignment(512 * block.expansion, 512 * block.expansion)
         self.bn_final = norm_layer(512 * block.expansion)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
@@ -247,6 +252,7 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
+        x = self.align(x)
         x = self.bn_final(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
@@ -258,5 +264,5 @@ class ResNet(nn.Module):
         return self._forward_impl(x)
 
 
-def ResNet18():
+def AlignedResNet18():
     return ResNet(BasicBlock, [2, 2, 2, 2])
