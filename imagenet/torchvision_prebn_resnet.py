@@ -56,9 +56,9 @@ class BasicBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x: Tensor) -> Tensor:
+        x = self.bn1(x)
         identity = x
 
-        out = self.bn1(x)
         out = self.conv1(x)
         out = self.relu(out)
 
@@ -210,7 +210,7 @@ class ResNet(nn.Module):
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
                 conv1x1(self.inplanes, planes * block.expansion, stride),
-                norm_layer(planes * block.expansion),
+                # norm_layer(planes * block.expansion),
             )
 
         layers = []

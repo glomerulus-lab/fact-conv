@@ -51,26 +51,25 @@ class BasicBlock(nn.Module):
         self.align1 = Alignment(inplanes, inplanes)
         self.bn1 = norm_layer(inplanes)
         self.conv1 = conv3x3(inplanes, planes, stride)
+        self.align2 = Alignment(planes, planes)
         self.bn2 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
-        #self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
-        
-        out = self.align1(x)
-        out = self.bn1(x)
-        out = self.conv1(x)
-        out = self.relu(out)
+        x_align = self.bn1(self.align1(x))
 
+        out = self.conv1(x_align)
+        out = self.relu(out)
+        out = self.align2(out)
         out = self.bn2(out)
         out = self.conv2(out)
 
         if self.downsample is not None:
-            identity = self.downsample(x)
+            identity = self.downsample(x_align)
 
         out += identity
         out = self.relu(out)
@@ -170,7 +169,6 @@ class ResNet(nn.Module):
         self.groups = groups
         self.base_width = width_per_group
         self.conv1 = ResamplingDoubleFactConv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
-        # self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -215,8 +213,9 @@ class ResNet(nn.Module):
             stride = 1
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
+                #norm_layer(self.inplanes),
                 conv1x1(self.inplanes, planes * block.expansion, stride),
-                norm_layer(planes * block.expansion),
+                #norm_layer(planes * block.expansion),
             )
 
         layers = []
@@ -243,7 +242,6 @@ class ResNet(nn.Module):
     def _forward_impl(self, x: Tensor) -> Tensor:
         # See note [TorchScript super()]
         x = self.conv1(x)
-        #x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
 
@@ -251,7 +249,7 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-
+    
         x = self.align(x)
         x = self.bn_final(x)
         x = self.avgpool(x)
