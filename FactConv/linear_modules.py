@@ -147,7 +147,12 @@ class ResamplingDoubleFactLinear(nn.Linear):
         nn.init.kaiming_normal_(self.weight)
 
     def _tri_vec_to_mat(self, vec, n, scat_idx):
-        U = self.weight.new_zeros((n*n)).scatter_(0, scat_idx, vec).view(n, n)
-        U = torch.diagonal_scatter(U, U.diagonal().exp_())
+        #U = self.weight.new_zeros((n*n)).scatter_(0, scat_idx, vec).view(n, n)
+        #U = torch.diagonal_scatter(U, U.diagonal().exp_())
+        U = self.weight.new_zeros((n*n), device=self.tri_vec.device,
+                dtype=self.tri_vec.dtype)
+        U = U.view(n, n).fill_diagonal_(1).view(n*n)
+        U = U.scatter_(0, scat_idx, vec).view(n,n)
+        U = torch.diagonal_scatter(U, torch.abs(U.diagonal()))
         return U
 

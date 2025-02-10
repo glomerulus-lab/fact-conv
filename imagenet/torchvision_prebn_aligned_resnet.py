@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from align import Alignment
+#from id_align import Alignment
 from conv_modules import ResamplingDoubleFactConv2d
 
 def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
@@ -60,20 +61,30 @@ class BasicBlock(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         identity = x
-        x_align = self.bn1(self.align1(x))
-
+        print("About to align 1: ", x.shape)
+        x_align = self.align1(x)
+        print("Split BN and Align")
+        torch.cuda.synchronize()
+        print("About to BN Align")
+        x_bn = self.bn1(x_align)
+        print("JUst aligned 1: ", x_align.shape)
+        torch.cuda.synchronize()
+        print("Error is Here!!!")
         out = self.conv1(x_align)
+        print("Just Conved 1")
         out = self.relu(out)
+        print("About to align 2")
         out = self.align2(out)
+        print("Just aligned 2")
         out = self.bn2(out)
         out = self.conv2(out)
 
         if self.downsample is not None:
-            identity = self.downsample(x_align)
+            identity = self.downsample(x_bn)
 
         out += identity
         out = self.relu(out)
-
+        print("Returning out")
         return out
 
 

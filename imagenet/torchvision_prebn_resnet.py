@@ -257,5 +257,5 @@ class ResNet(nn.Module):
         return self._forward_impl(x)
 
 
-def ResNet18():
+def SwitchedResNet18():
     return ResNet(BasicBlock, [2, 2, 2, 2])

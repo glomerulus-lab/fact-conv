@@ -28,18 +28,19 @@ import torchvision.transforms as transforms
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
 
+torch.multiprocessing.set_start_method("spawn", force=True)
 torch.set_num_threads(1)
-
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
+torch.inverse(torch.ones((1, 1), device="cuda:0"))
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
 
 from distutils.util import strtobool
 
 #from imagenet_setup import replace_layers, replace_layers_agnostic
 from function_utils import replace_layers_factconv2d, replace_layers_scale
-from resnet import ResNet18
-from switched_resnet import SwitchedResNet18
-from aligned_resnet import AlignedResNet18
+from torchvision_resnet import ResNet18
+from torchvision_prebn_resnet import SwitchedResNet18
+from torchvision_prebn_aligned_resnet import AlignedResNet18
 
 model_names = sorted(name for name in models.__dict__
     if name.islower() and not name.startswith("__")
@@ -99,16 +100,14 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'fastest way to use PyTorch for either single node or '
                          'multi node data parallel training')
 parser.add_argument('--dummy', action='store_true', help="use fake data to benchmark")
-parser.add_argument('--fact', dest='fact', 
-                    type=lambda x: bool(strtobool(x)), default=True,
-                    help="run factored covaraince model (true or false)")
+parser.add_argument('--fact', dest='fact', type=strtobool, default=True,
+                            help="Run factored covariance model (true or false)")
 parser.add_argument('--name', default='testing', type=str,
                     help='folder name for saved stuff')
 parser.add_argument('--width_scale', default=1, type=float,
                     help='width scale factor')
 
 best_acc1 = 0
-
 #directory to load intiial models from
 #load_dir = "/network/scratch/v/vivian.white/v1-models/saved-models/imagenet" 
 def main():
@@ -136,6 +135,7 @@ def main():
 
     if torch.cuda.is_available():
         ngpus_per_node = torch.cuda.device_count()
+        print(ngpus_per_node)
     else:
         ngpus_per_node = 1
     print("Ngpus per node: ", ngpus_per_node)
@@ -176,7 +176,7 @@ def main_worker(gpu, ngpus_per_node, args):
         model = models.__dict__[args.arch](pretrained=True)
     else:
         print("=> creating model '{}'".format(args.arch))
-        model = models.__dict__[args.arch]()
+        #model = models.__dict__[args.arch]()
         
         if args.arch == "resnet18":
             # print(load_dir) 
@@ -196,8 +196,12 @@ def main_worker(gpu, ngpus_per_node, args):
             print(model)
         elif args.arch == "switched_resnet18":
             model = SwitchedResNet18()
+            print("Created SwitchedResNet18()")
+            print(model)
         elif args.arch == "aligned_resnet18":
             model = AlignedResNet18()
+            print("Created AlignedResNet18()")
+            print(model)
 
         # elif args.arch == "alexnet":
         #     initial = torch.load("{}/conv_alexnet_init.pt".format(load_dir))
@@ -208,6 +212,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.fact:
         print("Making fact")
         replace_layers_factconv2d(model)
+        print(model)
         print("Built Fact Model")
 
     if not torch.cuda.is_available() and not torch.backends.mps.is_available():
@@ -383,9 +388,12 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
 
     # switch to train mode
     model.train()
-
+    print("About to train")
     end = time.time()
+    #print("1: ", torch.__config__.show())
     for i, (images, target) in enumerate(train_loader):
+        print("Data batch")
+    #    print("2: ", torch.__config__.show())
         # measure data loading time
         data_time.update(time.time() - end)
 
@@ -394,9 +402,14 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
         target = target.to(device, non_blocking=True)
         torch.cuda.empty_cache()
 
+    #    print("3: ", torch.__config__.show())
+
         # compute output
+        print("Pre output")
+        torch.cuda.synchronize()
         output = model(images)
         loss = criterion(output, target)
+        print("Post loss")
 
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))

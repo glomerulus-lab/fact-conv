@@ -2,14 +2,16 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-task=a100l:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem-per-gpu=32G
+#SBATCH --mem-per-gpu=100G
 #SBATCH --output=slurm/%j.out
 #SBATCH --nodes=1
 #SBATCH --C=dgx
-#SBATCH --partition=long
+#SBATCH --partition=short-unkillable
 
-module load python/3.8
-source env_imagenet/bin/activate
+#module load python/3.8
+#source env_imagenet/bin/activate
+module load anaconda/3
+conda activate random_features
 #srun --job-name="Dataset_Staging" --nodes=$SLURM_NNODES --ntasks=$SLURM_NNODES  --ntasks-per-node=1 bash unpack_imagenet.sh
 
 export MASTER_ADDR=127.0.0.1

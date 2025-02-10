@@ -9,4 +9,8 @@
 #
 #sbatch --ntasks-per-node 4 setoff_final.sh --arch resnet18 --fact True --name fact_resnet_width_4 --lr 0.1 --width_scale 4 -b 256
 
-sbatch --ntasks-per-node 4 setoff_mila_vivian.sh --arch resnet18 --fact False --name retry_fact_resnet_width_4 --lr 0.1 --width_scale 4 -b 512
+#sbatch --ntasks-per-node 4 setoff_mila_vivian.sh --arch resnet18 --fact False --name retry_fact_resnet_width_4 --lr 0.1 --width_scale 4 -b 512
+
+
+
+sbatch --ntasks-per-node 1 setoff_mila.sh --arch aligned_resnet18 --fact False --name test_aligned_resnet_width_1 --lr 0.1 --width_scale 1 -b 1024
